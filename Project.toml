@@ -3,6 +3,19 @@ uuid = "73ee3e68-46fd-466f-9c56-451dc0291ebc"
 authors = ["Christoph Ortner <christohortner@gmail.com> and contributors"]
 version = "0.0.1"
 
+[deps]
+ACEbase = "14bae519-eb20-449c-a949-9c58ed33163e"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Lux = "b2108857-7c20-44ae-9111-449ecde12c47"
+Polynomials4ML = "03c4bcba-a943-47e9-bfa1-b1661fc2974f"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+RepLieGroups = "f07d36f2-91c4-427a-b67b-965fe5ebe1d2"
+Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+WignerD = "87c4ff3e-34df-11e9-37a7-516cea4e0402"
+
 [compat]
 julia = "1"
 

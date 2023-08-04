@@ -1,5 +1,5 @@
 module EquivariantModels
 
-# Write your package code here.
+include("builder.jl")
 
 end
