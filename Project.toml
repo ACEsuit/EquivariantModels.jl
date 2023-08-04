@@ -1,0 +1,13 @@
+name = "EquivariantModels"
+uuid = "73ee3e68-46fd-466f-9c56-451dc0291ebc"
+authors = ["Christoph Ortner <christohortner@gmail.com> and contributors"]
+version = "0.0.1"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
