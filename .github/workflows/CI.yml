@@ -51,6 +51,7 @@ jobs:
         run: |
           julia --project=docs/ -e '
             using Pkg
+            Pkg.pkg"registry add https://github.com/ACEsuit/ACEregistry.git"
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
       - uses: julia-actions/julia-buildpkg@v1
