@@ -55,8 +55,8 @@ for ntest = 1:20
 end
 println()
 
-## seperated blocks
-@info("Testing the chain that generates several blocks from a long vector")
+## equivariant blocks
+@info("Testing the chain that generates several equivariant blocks from a long vector")
 totdeg = 5
 ν = 1
 L = 4
@@ -67,7 +67,7 @@ F(X) = luxchain(X, ps, st)[1]
 
 @info("Equivariance test")
 l1l2set = [(l1,l2) for l1 = 0:L for l2 = 0:L-l1]
-for ntest = 1:2
+for ntest = 1:10
    local X, θ, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
    θ = rand() * 2pi
@@ -83,3 +83,26 @@ for ntest = 1:2
    end
 end
 println()
+
+## A second way - construct B^0, B^1, ..., B^L first
+@info("Testing the chain that generates all the B bases")
+totdeg = 6
+ν = 2
+L = 4
+luxchain, ps, st, C, pos = luxchain_constructor_multioutput(totdeg,ν,L)
+F(X) = luxchain(X, ps, st)[1]
+
+for ntest = 1:10
+   local X, θ, Q, QX
+   X = [ @SVector(rand(3)) for i in 1:10 ]
+   θ = rand() * 2pi
+   Q = RotXYZ(0, 0, θ)
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
+   
+   print_tf(@test F(X)[1] ≈ F(QX)[1])
+
+   for l = 2:L
+      D = wignerD(l-1, 0, 0, θ)
+      print_tf(@test norm.(Ref(D') .* F(X)[l] - F(QX)[l]) |> norm <1e-8)
+   end
+end

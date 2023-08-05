@@ -9,7 +9,7 @@ using Random
 using Polynomials4ML
 using StaticArrays
 
-export luxchain_constructor, equivariant_luxchain_constructor
+export luxchain_constructor, luxchain_constructor_multioutput, equivariant_luxchain_constructor
 
 # a should be a set, return the position of each element
 function _invmap(a::AbstractVector)
@@ -92,7 +92,7 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T},Rot3DCoeffs_real{L,T},Rot3
    if typeof(cgen) <: Rot3DCoeffs_long
       vals = SYYVector{L,(L+1)^2}[]
    else
-      vals =  L == 0 ? Float64[] : SVector{2L+1}[]
+      vals =  L == 0 ? Float64[] : SVector{2L+1,ComplexF64}[]
    end
    # count the number of PI basis functions = number of rows
    idxB = 0
@@ -214,9 +214,7 @@ function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg), islon
    return luxchain, ps, st
 end
 
-
-
-## mapping from long vector to spherical matrix
+# mapping from long vector to spherical matrix
 using RepLieGroups.O3: ClebschGordan
 cg = ClebschGordan(ComplexF64)
 function cgmatrix(L1,L2)
@@ -295,4 +293,80 @@ function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(to
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
                         
    return luxchain, ps, st
+end
+
+# This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
+# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
+# (4) weight of the order of spherical harmonics; (5) specified radial basis
+function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg))
+   Ylm = CYlmBasis(totdeg)
+
+   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
+   spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
+   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+
+   # define sparse for n-correlations
+   tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
+   default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totdeg
+
+   # initialize C and spec_nlm
+   C = Vector{Any}(undef,L+1)
+   # spec_nlm = Vector{Any}(undef,L+1)
+   spec = Vector{Any}(undef,L+1)
+
+   # Spec = []
+   
+   for l = 0:L
+      filter = RPI_filter(l)
+      cgen = Rot3DCoeffs(l)
+      specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
+                        admissible = default_admissible,
+                        minvv = fill(0, ν), 
+                        maxvv = fill(length(spec1p), ν), 
+                        ordered = true)
+
+      spec[l+1] = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
+      # Spec = Spec ∪ spec
+
+      spec_nlm = getspecnlm(spec1p, spec[l+1])
+      C[l+1] = _rpi_A2B_matrix(cgen, spec_nlm)
+   end
+   # return C, spec, spec_nlm
+   # acemodel with lux layers
+   bA = P4ML.PooledSparseProduct(spec1pidx)
+   
+   #
+   filter = RPI_filter_long(L)
+   specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
+                     admissible = default_admissible,
+                     minvv = fill(0, ν), 
+                     maxvv = fill(length(spec1p), ν), 
+                     ordered = true)
+
+   Spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
+   dict = Dict([Spec[i] => i for i = 1:length(Spec)])
+   pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
+   # @show typeof(pos)
+   # return C, spec, Spec
+   
+   bAA = P4ML.SparseSymmProd(Spec)
+   
+   # wrapping into lux layers
+   l_Rn = P4ML.lux(Rn)
+   l_Ylm = P4ML.lux(Ylm)
+   l_bA = P4ML.lux(bA)
+   l_bAA = P4ML.lux(bAA)
+   
+   # formming model with Lux Chain
+   _norm(x) = norm.(x)
+   
+   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
+   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+   l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
+   
+   # C - A2Bmap
+   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate)#, rAA = WrappedFunction(ComplexF64))
+   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
+   
+   return luxchain, ps, st, C, pos 
 end
