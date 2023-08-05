@@ -160,7 +160,7 @@ RPI_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
 # or [B^0, B^1, ... B^L] vector, depending on whether islong == true
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
-function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg), islong = true)
+function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg), islong = true)
    if islong
       filter = RPI_filter_long(L)
       cgen = Rot3DCoeffs_long(L)
@@ -237,7 +237,7 @@ end
 # and then all equivariant basis.
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
-function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg))
+function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg))
 
    filter = RPI_filter_long(L)
    cgen = Rot3DCoeffs_long(L)
@@ -298,7 +298,7 @@ end
 # This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
-function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg))
+function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg))
    Ylm = CYlmBasis(totdeg)
 
    spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
