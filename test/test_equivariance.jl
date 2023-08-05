@@ -60,7 +60,7 @@ println()
 totdeg = 5
 ν = 1
 L = 4
-luxchain, ps, st = luxchain_constructor_multioutput(totdeg,ν,L)
+luxchain, ps, st = equivariant_luxchain_constructor(totdeg,ν,L)
 F(X) = luxchain(X, ps, st)[1]
 
 # A small comparison - long vector does give us some redundent basis...

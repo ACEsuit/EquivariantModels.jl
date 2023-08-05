@@ -9,7 +9,7 @@ using Random
 using Polynomials4ML
 using StaticArrays
 
-export luxchain_constructor, luxchain_constructor_multioutput
+export luxchain_constructor, equivariant_luxchain_constructor
 
 # a should be a set, return the position of each element
 function _invmap(a::AbstractVector)
@@ -156,6 +156,10 @@ P4ML = Polynomials4ML
 RPI_filter(L) = bb -> (length(bb) == 0) || ((abs(sum(b.m for b in bb)) <= L) && iseven(sum(b.l for b in bb)+L))
 RPI_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
 
+# This constructor builds a lux chain that maps a configuration to the corresponding B^L vector 
+# or [B^0, B^1, ... B^L] vector, depending on whether islong == true
+# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
+# (4) weight of the order of spherical harmonics; (5) specified radial basis
 function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg), islong = true)
    if islong
       filter = RPI_filter_long(L)
@@ -210,6 +214,8 @@ function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg), islon
    return luxchain, ps, st
 end
 
+
+
 ## mapping from long vector to spherical matrix
 using RepLieGroups.O3: ClebschGordan
 cg = ClebschGordan(ComplexF64)
@@ -229,7 +235,11 @@ function cgmatrix(L1,L2)
    return cgm
 end
 
-function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg))
+# This constructor builds a lux chain that maps a configuration to a LONG B^L vector ()[B^0, B^1, ... B^L]), 
+# and then all equivariant basis.
+# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
+# (4) weight of the order of spherical harmonics; (5) specified radial basis
+function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = MonoBasis(totdeg))
 
    filter = RPI_filter_long(L)
    cgen = Rot3DCoeffs_long(L)
