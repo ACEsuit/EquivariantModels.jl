@@ -284,7 +284,7 @@ function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_bas
    cgmat_set = [cgmatrix(l1,l2) for (l1,l2) in l1l2set ]
    
    _block(x,cgmat,l1,l2) = reshape.(Ref(cgmat) .* [ x[j][1:size(cgmat)[2]] for j = 1:length(x) ], 2l1+1, 2l2+1)
-   _dropzero(x) = x[findall(X -> X>1e-8, norm.(x))]
+   _dropzero(x) = x[findall(X -> X>1e-12, norm.(x))]
    
    l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> _dropzero(_block(x,cgmat_set[i],l1l2set[i][1],l1l2set[i][2]))) for i = 1:length(cgmat_set)]... )
 
