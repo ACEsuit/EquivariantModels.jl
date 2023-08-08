@@ -2,12 +2,12 @@ using EquivariantModels
 using StaticArrays
 using Test
 using ACEbase.Testing: print_tf
-using Rotations, WignerD
+using Rotations, WignerD, BlockDiagonals
 using LinearAlgebra
 
 @info("Testing single vector case")
-totdeg = 5
-ν = 3
+totdeg = 6
+ν = 2
 
 for L = 0:4
    local F, luxchain, ps, st
@@ -32,9 +32,9 @@ for L = 0:4
    println()
 end
 
-# SYYVector case
-totdeg = 5
-ν = 1
+@info("Testing SYYVector case")
+totdeg = 6
+ν = 2
 L = 4
 luxchain, ps, st = luxchain_constructor(totdeg,ν,L;islong = true)
 local F
@@ -47,18 +47,16 @@ for ntest = 1:20
    θ = rand() * 2pi
    Q = RotXYZ(0, 0, θ)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
-
-   for l = 0:L
-      D = wignerD(l, 0, 0, θ)
-      print_tf(@test Ref(D) .* [F(QX)[i][Val(l)] for i = 1:length(F(X))] ≈ [F(X)[i][Val(l)] for i = 1:length(F(X))])
-   end
+   D = BlockDiagonal([ wignerD(l, 0, 0, θ) for l = 0:L] )
+   
+   print_tf(@test Ref(D) .* F(QX) ≈ F(X))
 end
 println()
 
 ## equivariant blocks
 @info("Testing the chain that generates several equivariant blocks from a long vector")
-totdeg = 5
-ν = 1
+totdeg = 6
+ν = 2
 L = 4
 luxchain, ps, st = equivariant_luxchain_constructor(totdeg,ν,L)
 F(X) = luxchain(X, ps, st)[1]
@@ -89,7 +87,7 @@ println()
 totdeg = 6
 ν = 2
 L = 4
-luxchain, ps, st, C, pos = luxchain_constructor_multioutput(totdeg,ν,L)
+luxchain, ps, st = luxchain_constructor_multioutput(totdeg,ν,L)
 F(X) = luxchain(X, ps, st)[1]
 
 for ntest = 1:10
@@ -107,3 +105,54 @@ for ntest = 1:10
    end
 end
 println()
+
+@info("Consistency check")
+totdeg = 6
+ν = 2
+L = 4
+luxchain, ps, st = luxchain_constructor_multioutput(totdeg,ν,L);
+F(X) = luxchain(X, ps, st)[1]
+
+for l = 0:4
+   @info("Consistency check for L = $l")
+   local FF, luxchain, ps, st
+   luxchain, ps, st = luxchain_constructor(totdeg,ν,l;islong = false)
+   FF(X) = luxchain(X, ps, st)[1]
+   
+   for ntest = 1:20
+      X = [ @SVector(rand(3)) for i in 1:10 ]
+      print_tf(@test F(X)[l+1] == FF(X))
+   end
+   println()
+end
+
+
+# ##
+# using EquivariantModels:cgmatrix
+# 
+# totdeg = 6
+# ν = 2
+# L = 3
+# luxchain, ps, st = luxchain_constructor_multioutput(totdeg,ν,L);
+# F(X) = luxchain(X, ps, st)[1]
+# X = [ @SVector(rand(3)) for i in 1:10 ]
+# θ = rand() * 2pi
+# Q = RotXYZ(0, 0, θ)
+# D = wignerD(1, 0, 0, θ)
+# D2 = wignerD(2, 0, 0, θ)
+# QX = [SVector{3}(x) for x in Ref(Q) .* X]
+# vals = F(X)
+# Qvals = F(QX)
+# 
+# for ntest = 1:20
+#    ii = [ rand(1:length(vals[i])) for i = 1:length(vals) ]
+# 
+#    vec1 = [ 0; vals[2][ii[2]]; zeros(5); vals[4][ii[4]] ]
+#    B1 = reshape(cgmatrix(1,2) * vec1,3,5)
+#    vec2 = [ 0; Qvals[2][ii[2]]; zeros(5); Qvals[4][ii[4]] ]
+#    B2 = reshape(cgmatrix(1,2) * vec2,3,5)
+#    @assert D' * B1 * D2 - B2 |> norm <1e-12
+# end
+# 
+# cgmatrix(1,2)
+# 

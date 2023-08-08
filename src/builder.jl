@@ -230,10 +230,10 @@ function cgmatrix(L1,L2)
          end
       end
    end
-   return cgm
+   return sparse(cgm)
 end
 
-# This constructor builds a lux chain that maps a configuration to a LONG B^L vector ()[B^0, B^1, ... B^L]), 
+# This constructor builds a lux chain that maps a configuration to a LONG B^L vector ([B^0, B^1, ... B^L]), 
 # and then all equivariant basis.
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
@@ -368,5 +368,5 @@ function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = legendre_bas
    luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate)#, rAA = WrappedFunction(ComplexF64))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
-   return luxchain, ps, st, C, pos 
+   return luxchain, ps, st #, C, pos 
 end
