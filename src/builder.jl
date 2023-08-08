@@ -368,5 +368,111 @@ function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = legendre_bas
    luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate)#, rAA = WrappedFunction(ComplexF64))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
-   return luxchain, ps, st #, C, pos 
+   return luxchain, ps, st
+end
+
+# This constructor builds a lux chain that maps a configuration to B^0, B^1, ... B^L first, 
+# and then deduces all equivariant basis.
+# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
+# (4) weight of the order of spherical harmonics; (5) specified radial basis
+function equivariant_luxchain_constructor_new(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg))
+   Ylm = CYlmBasis(totdeg)
+
+   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
+   spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
+   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+
+   # define sparse for n-correlations
+   tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
+   default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totdeg
+
+   # initialize C and spec_nlm
+   C = Vector{Any}(undef,L+1)
+   # spec_nlm = Vector{Any}(undef,L+1)
+   spec = Vector{Any}(undef,L+1)
+
+   # Spec = []
+   
+   for l = 0:L
+      filter = RPI_filter(l)
+      cgen = Rot3DCoeffs(l)
+      specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
+                        admissible = default_admissible,
+                        minvv = fill(0, ν), 
+                        maxvv = fill(length(spec1p), ν), 
+                        ordered = true)
+
+      spec[l+1] = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
+      # Spec = Spec ∪ spec
+
+      spec_nlm = getspecnlm(spec1p, spec[l+1])
+      C[l+1] = _rpi_A2B_matrix(cgen, spec_nlm)
+   end
+   # return C, spec, spec_nlm
+   # acemodel with lux layers
+   bA = P4ML.PooledSparseProduct(spec1pidx)
+   
+   #
+   filter = RPI_filter_long(L)
+   specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
+                     admissible = default_admissible,
+                     minvv = fill(0, ν), 
+                     maxvv = fill(length(spec1p), ν), 
+                     ordered = true)
+
+   Spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
+   dict = Dict([Spec[i] => i for i = 1:length(Spec)])
+   pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
+   # @show typeof(pos)
+   # return C, spec, Spec
+   
+   bAA = P4ML.SparseSymmProd(Spec)
+   
+   # wrapping into lux layers
+   l_Rn = P4ML.lux(Rn)
+   l_Ylm = P4ML.lux(Ylm)
+   l_bA = P4ML.lux(bA)
+   l_bAA = P4ML.lux(bAA)
+   
+   # formming model with Lux Chain
+   _norm(x) = norm.(x)
+   
+   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
+   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+   l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
+   
+   function _vectorize(cc)
+      ccc = []
+      for i = 1:length(cc)
+         ccc = [ccc; cc[i]...]
+      end
+      return sparse(complex.(ccc))
+   end
+   
+   function _block(x,l1,l2)
+      @assert l1+l2 <= length(x) - 1
+      init = iseven(l1+l2) ? 0 : 1
+      fea_set = init:2:l1+l2
+      A = Vector{Any}(undef,l1+l2+1)
+      for i = 0:l1+l2
+         if i in fea_set
+            A[i+1] = x[i+1]
+         else
+            A[i+1] = [zeros(ComplexF64,2i+1)]
+         end
+      end
+      cc = Iterators.product(A...) |> collect
+      c = [ _vectorize(cc[i]) for i = 1:length(cc) ]
+      return reshape.( Ref(cgmatrix(l1,l2)) .* c, 2l1+1, 2l2+1 )
+   end
+   
+   # l_condensed = WrappedFunction(x -> _block(x,0,1))
+   l_condensed = Lux.Parallel(nothing, [WrappedFunction(x -> _block(x,l1,l2)) for l1 in 0:L for l2 in 0:L-l1]... )
+   
+   
+   # C - A2Bmap
+   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate, inter = WrappedFunction(x -> [x[i] for i = 1:length(x)]), B = l_condensed)#, rAA = WrappedFunction(ComplexF64))
+   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
+   
+   return luxchain, ps, st
 end

@@ -126,33 +126,24 @@ for l = 0:4
    println()
 end
 
+@info("Testing the equivariance of the second way of constructing equivariant bases")
+totdeg = 6
+ν = 1
+L = 4
+luxchain, ps, st = EquivariantModels.equivariant_luxchain_constructor_new(totdeg,ν,L);
+F(X) = luxchain(X, ps, st)[1]
 
-# ##
-# using EquivariantModels:cgmatrix
-# 
-# totdeg = 6
-# ν = 2
-# L = 3
-# luxchain, ps, st = luxchain_constructor_multioutput(totdeg,ν,L);
-# F(X) = luxchain(X, ps, st)[1]
-# X = [ @SVector(rand(3)) for i in 1:10 ]
-# θ = rand() * 2pi
-# Q = RotXYZ(0, 0, θ)
-# D = wignerD(1, 0, 0, θ)
-# D2 = wignerD(2, 0, 0, θ)
-# QX = [SVector{3}(x) for x in Ref(Q) .* X]
-# vals = F(X)
-# Qvals = F(QX)
-# 
-# for ntest = 1:20
-#    ii = [ rand(1:length(vals[i])) for i = 1:length(vals) ]
-# 
-#    vec1 = [ 0; vals[2][ii[2]]; zeros(5); vals[4][ii[4]] ]
-#    B1 = reshape(cgmatrix(1,2) * vec1,3,5)
-#    vec2 = [ 0; Qvals[2][ii[2]]; zeros(5); Qvals[4][ii[4]] ]
-#    B2 = reshape(cgmatrix(1,2) * vec2,3,5)
-#    @assert D' * B1 * D2 - B2 |> norm <1e-12
-# end
-# 
-# cgmatrix(1,2)
-# 
+for ntest = 1:10
+   local X, θ, Q, QX
+   X = [ @SVector(rand(3)) for i in 1:10 ]
+   θ = rand() * 2pi
+   Q = RotXYZ(0, 0, θ)
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
+
+   for i = 1:length(F(X))
+      l1,l2 = Int.(size(F(X)[i][1]).-1)./2
+      D1 = wignerD(l1, 0, 0, θ)
+      D2 = wignerD(l2, 0, 0, θ)
+      print_tf(@test Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i] |> norm < 1e-12)
+   end
+end
