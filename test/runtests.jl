@@ -2,5 +2,5 @@ using EquivariantModels
 using Test
 
 @testset "EquivariantModels.jl" begin
-    # Write your tests here.
+    @testset "Equivariance" begin include("test_equivariance.jl") end
 end
