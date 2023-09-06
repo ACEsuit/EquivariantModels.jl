@@ -527,9 +527,9 @@ function equivariant_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendr
          spec[l+1] = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
       end
 
-      filter = RPE_filter_long(L)
-      tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
-      Spec = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
+      # filter = RPE_filter_long(L)
+      # tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
+      Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
       dict = Dict([Spec[i] => i for i = 1:length(Spec)])
       pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
    
