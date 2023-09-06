@@ -493,12 +493,8 @@ function specnlm2spec1p(spec_nlm)
 end
 
 function equivariant_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
-   # first filter out those unfeasible spec_nlm
-   if !islong
-      filter_init = RPE_filter(L)
-   else
-      filter_init = RPE_filter_long(L)
-   end
+   # first filt out those unfeasible spec_nlm
+   filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
    # from spec_nlm to all possible spec1p
@@ -548,6 +544,7 @@ function equivariant_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendr
    # wrapping into lux layers
    l_Rn = P4ML.lux(Rn)
    l_Ylm = P4ML.lux(Ylm)
+   # l_δs = P4ML.lux(δs)
    l_bA = P4ML.lux(bA)
    l_bAA = P4ML.lux(bAA)
    
