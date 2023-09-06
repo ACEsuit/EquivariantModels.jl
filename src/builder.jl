@@ -493,6 +493,14 @@ function specnlm2spec1p(spec_nlm)
 end
 
 function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
+   # first filter out those unfeasible spec_nlm
+   if !islong
+      filter_init = RPE_filter(L)
+   else
+      filter_init = RPE_filter_long(L)
+   end
+   spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
+   
    # from spec_nlm to all possible spec1p
    spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
@@ -506,28 +514,33 @@ function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=le
    spec1pidx = getspec1idx(spec1p, Rn, Ylm)
    bA = P4ML.PooledSparseProduct(spec1pidx)
 
+   if islong
    # initialize C and spec_nlm
+      C = Vector{Any}(undef,L+1)
+      spec = Vector{Any}(undef,L+1)
    
-   C = Vector{Any}(undef,L+1)
-   spec = Vector{Any}(undef,L+1)
+      for l = 0:L
+         filter = RPE_filter(l)
+         cgen = Rot3DCoeffs(l)
 
-   
-   for l = 0:L
-      filter = RPE_filter(l)
-      cgen = Rot3DCoeffs(l)
+         tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
+         C[l+1] = _rpi_A2B_matrix(cgen, tmp)
+         spec[l+1] = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
+      end
 
+      filter = RPE_filter_long(L)
       tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
-      C[l+1] = _rpi_A2B_matrix(cgen, tmp)
-      spec[l+1] = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
-   end
-
-   filter = RPE_filter_long(L)
-   tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
-   Spec = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
-   dict = Dict([Spec[i] => i for i = 1:length(Spec)])
-   pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
+      Spec = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
+      dict = Dict([Spec[i] => i for i = 1:length(Spec)])
+      pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
    
-   bAA = P4ML.SparseSymmProd(Spec)
+      bAA = P4ML.SparseSymmProd(Spec)
+   else
+      cgen = Rot3DCoeffs(L)
+      C = _rpi_A2B_matrix(cgen, spec_nlm)
+      Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
+      bAA = P4ML.SparseSymmProd(Spec)
+   end
    
    # wrapping into lux layers
    l_Rn = P4ML.lux(Rn)
@@ -540,11 +553,12 @@ function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=le
    
    l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
    l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
-   l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
+   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
+   # l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
    
    # C - A2Bmap
-   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate)#, rAA = WrappedFunction(ComplexF64))
+   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_sym)#, rAA = WrappedFunction(ComplexF64))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
-   
+      
    return luxchain, ps, st
 end
