@@ -508,10 +508,13 @@ function equivariant_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendr
    Rn = radial_basis(nmax)
    
    if !isempty(categories)
+      # Read categories from x
+      cat(x) = [ x[i].cat for i = 1:length(x) ]
       # Define categorical bases
+      # δs = CateBasis(categories) # TODO: this is not yet in P4ML ??
    end
    
-   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+   spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
    bA = P4ML.PooledSparseProduct(spec1pidx)
 
    if islong
