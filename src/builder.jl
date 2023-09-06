@@ -482,8 +482,8 @@ end
 
 ##
 # This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
-# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
-# (4) weight of the order of spherical harmonics; (5) specified radial basis
+# What can be adjusted in its input are: (1) spec_nlm as the specification of the AA bases; (2) largest L
+# (3) a set of categories; (4) specified radial basis; (5) symmetry group; ...
 
 function specnlm2spec1p(spec_nlm)
    spec1p = union(spec_nlm...)
