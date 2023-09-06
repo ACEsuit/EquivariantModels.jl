@@ -492,7 +492,7 @@ function specnlm2spec1p(spec_nlm)
    return spec1p, lmax, nmax + 1
 end
 
-function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
+function equivariant_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
    # first filter out those unfeasible spec_nlm
    if !islong
       filter_init = RPE_filter(L)
@@ -521,7 +521,7 @@ function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=le
    
       for l = 0:L
          filter = RPE_filter(l)
-         cgen = Rot3DCoeffs(l)
+         cgen = Rot3DCoeffs(l) # TODO: this should be made group related
 
          tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
          C[l+1] = _rpi_A2B_matrix(cgen, tmp)
@@ -536,7 +536,7 @@ function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=le
    
       bAA = P4ML.SparseSymmProd(Spec)
    else
-      cgen = Rot3DCoeffs(L)
+      cgen = Rot3DCoeffs(L) # TODO: this should be made group related
       C = _rpi_A2B_matrix(cgen, spec_nlm)
       Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
       bAA = P4ML.SparseSymmProd(Spec)
