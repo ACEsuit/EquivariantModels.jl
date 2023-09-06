@@ -75,6 +75,7 @@ function LinearSearch(arr, t)
            return idx
        end
    end
+   @show t
    @error("No t found")
 end
 
@@ -131,9 +132,11 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T},Rot3DCoeffs_real{L,T},Rot3
             # look for the index of basis bcol in spec
             bcol = sort(bcol)
             idxAA = LinearSearch(spec, bcol)
-            push!(Irow, idxB)
-            push!(Jcol, idxAA)
-            push!(vals, U[irow, icol])
+            if !isnothing(idxAA)
+               push!(Irow, idxB)
+               push!(Jcol, idxAA)
+               push!(vals, U[irow, icol])
+            end
          end
       end
       push!(nnllset,(nn,ll))
@@ -153,8 +156,8 @@ function getspecnlm(spec1p, spec)
 end
 
 P4ML = Polynomials4ML
-RPI_filter(L) = bb -> (length(bb) == 0) || ((abs(sum(b.m for b in bb)) <= L) && iseven(sum(b.l for b in bb)+L))
-RPI_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
+RPE_filter(L) = bb -> (length(bb) == 0) || ((abs(sum(b.m for b in bb)) <= L) && iseven(sum(b.l for b in bb)+L))
+RPE_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
 
 # This constructor builds a lux chain that maps a configuration to the corresponding B^L vector 
 # or [B^0, B^1, ... B^L] vector, depending on whether islong == true
@@ -162,10 +165,10 @@ RPI_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
 function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg), islong = true)
    if islong
-      filter = RPI_filter_long(L)
+      filter = RPE_filter_long(L)
       cgen = Rot3DCoeffs_long(L)
    else
-      filter = RPI_filter(L)
+      filter = RPE_filter(L)
       cgen = Rot3DCoeffs(L)
    end
    
@@ -226,7 +229,7 @@ function cgmatrix(L1,L2)
             position = ν + l + 1
             # cgm[i, l^2+position] = (-1)^q * cg(L1,p,L2,q,l,ν) 
             cgm[i, l^2+position] = cg(L1,p,L2,q,l,ν) 
-            # cgm[i, l^2+position] = (-1)^q * 3 / 2 / sqrt(π * (2l+1)) * cg(L1,0,L2,0,l,0) * cg(L1,p,L2,q,l,ν) 
+            # cgm[i, l^2+position] = (-1)^q * sqrt( (2L1+1) * (2L2+1) ) / 2 / sqrt(π * (2l+1)) * cg(L1,0,L2,0,l,0) * cg(L1,p,L2,q,l,ν) 
          end
       end
    end
@@ -239,7 +242,7 @@ end
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
 function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg))
 
-   filter = RPI_filter_long(L)
+   filter = RPE_filter_long(L)
    cgen = Rot3DCoeffs_long(L)
 
    Ylm = CYlmBasis(totdeg)
@@ -317,7 +320,7 @@ function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = legendre_bas
    # Spec = []
    
    for l = 0:L
-      filter = RPI_filter(l)
+      filter = RPE_filter(l)
       cgen = Rot3DCoeffs(l)
       specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
                         admissible = default_admissible,
@@ -336,7 +339,7 @@ function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = legendre_bas
    bA = P4ML.PooledSparseProduct(spec1pidx)
    
    #
-   filter = RPI_filter_long(L)
+   filter = RPE_filter_long(L)
    specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
                      admissible = default_admissible,
                      minvv = fill(0, ν), 
@@ -394,7 +397,7 @@ function equivariant_luxchain_constructor_new(totdeg,ν,L; wL = 1, Rn = legendre
    # Spec = []
    
    for l = 0:L
-      filter = RPI_filter(l)
+      filter = RPE_filter(l)
       cgen = Rot3DCoeffs(l)
       specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
                         admissible = default_admissible,
@@ -413,7 +416,7 @@ function equivariant_luxchain_constructor_new(totdeg,ν,L; wL = 1, Rn = legendre
    bA = P4ML.PooledSparseProduct(spec1pidx)
    
    #
-   filter = RPI_filter_long(L)
+   filter = RPE_filter_long(L)
    specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
                      admissible = default_admissible,
                      minvv = fill(0, ν), 
@@ -472,6 +475,75 @@ function equivariant_luxchain_constructor_new(totdeg,ν,L; wL = 1, Rn = legendre
    
    # C - A2Bmap
    luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate, inter = WrappedFunction(x -> [x[i] for i = 1:length(x)]), B = l_condensed)#, rAA = WrappedFunction(ComplexF64))
+   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
+   
+   return luxchain, ps, st
+end
+
+##
+# This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
+# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
+# (4) weight of the order of spherical harmonics; (5) specified radial basis
+
+function specnlm2spec1p(spec_nlm)
+   spec1p = union(spec_nlm...)
+   lmax = [ spec1p[i].l for i = 1:length(spec1p) ] |> maximum
+   nmax = [ spec1p[i].n for i = 1:length(spec1p) ] |> maximum
+   return spec1p, lmax, nmax + 1
+end
+
+function ClusterExpansion_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
+   # from spec_nlm to all possible spec1p
+   spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
+   dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
+   Ylm = CYlmBasis(lmax)
+   Rn = radial_basis(nmax)
+   
+   if !isempty(categories)
+      # Define categorical bases
+   end
+   
+   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+   bA = P4ML.PooledSparseProduct(spec1pidx)
+
+   # initialize C and spec_nlm
+   
+   C = Vector{Any}(undef,L+1)
+   spec = Vector{Any}(undef,L+1)
+
+   
+   for l = 0:L
+      filter = RPE_filter(l)
+      cgen = Rot3DCoeffs(l)
+
+      tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
+      C[l+1] = _rpi_A2B_matrix(cgen, tmp)
+      spec[l+1] = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
+   end
+
+   filter = RPE_filter_long(L)
+   tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
+   Spec = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
+   dict = Dict([Spec[i] => i for i = 1:length(Spec)])
+   pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
+   
+   bAA = P4ML.SparseSymmProd(Spec)
+   
+   # wrapping into lux layers
+   l_Rn = P4ML.lux(Rn)
+   l_Ylm = P4ML.lux(Ylm)
+   l_bA = P4ML.lux(bA)
+   l_bAA = P4ML.lux(bAA)
+   
+   # formming model with Lux Chain
+   _norm(x) = norm.(x)
+   
+   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
+   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+   l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
+   
+   # C - A2Bmap
+   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate)#, rAA = WrappedFunction(ComplexF64))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
    return luxchain, ps, st
