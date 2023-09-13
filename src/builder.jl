@@ -9,7 +9,7 @@ using Random
 using Polynomials4ML
 using StaticArrays
 
-export luxchain_constructor, luxchain_constructor_multioutput, equivariant_luxchain_constructor
+export equivariant_model, equivariant_SYY_model, equivariant_luxchain_constructor, equivariant_luxchain_constructor_new
 
 # a should be a set, return the position of each element
 function _invmap(a::AbstractVector)
@@ -41,7 +41,7 @@ function getspec1idx(spec1, bRnl, bYlm)
 end
 
 function make_nlms_spec(bRn, bYlm;
-            totaldegree::Integer = -1,
+            totaldegree::Int64 = -1,
             admissible = nothing, 
             nnuc = 0)
    
@@ -91,7 +91,7 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T},Rot3DCoeffs_real{L,T},Rot3
    # allocate triplet format
    Irow, Jcol = Int[], Int[]
    if typeof(cgen) <: Rot3DCoeffs_long
-      vals = SYYVector{L,(L+1)^2}[]
+      vals = SYYVector{L,(L+1)^2,ComplexF64}[]
    else
       vals =  L == 0 ? Float64[] : SVector{2L+1,ComplexF64}[]
    end
@@ -159,30 +159,163 @@ P4ML = Polynomials4ML
 RPE_filter(L) = bb -> (length(bb) == 0) || ((abs(sum(b.m for b in bb)) <= L) && iseven(sum(b.l for b in bb)+L))
 RPE_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
 
-# This constructor builds a lux chain that maps a configuration to the corresponding B^L vector 
-# or [B^0, B^1, ... B^L] vector, depending on whether islong == true
-# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
-# (4) weight of the order of spherical harmonics; (5) specified radial basis
-function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg), islong = true)
-   if islong
-      filter = RPE_filter_long(L)
-      cgen = Rot3DCoeffs_long(L)
-   else
-      filter = RPE_filter(L)
-      cgen = Rot3DCoeffs(L)
+# from a list os AA specifications to all A specifications needed
+function specnlm2spec1p(spec_nlm)
+   spec1p = union(spec_nlm...)
+   lmax = [ spec1p[i].l for i = 1:length(spec1p) ] |> maximum
+   nmax = [ spec1p[i].n for i = 1:length(spec1p) ] |> maximum
+   return spec1p, lmax, nmax + 1
+end
+
+## Start building the chains
+
+# This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
+# What can be adjusted in its input are: (1) spec_nlm as the specification of the AA bases; (2) largest L
+# (3) a set of categories; (4) specified radial basis; (5) symmetry group; ...
+
+# Configuration to AA bases - this is what all chains have in common
+function xx2AA(spec_nlm, d=3, categories=[]; radial_basis=legendre_basis)
+   # from spec_nlm to all possible spec1p
+   spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
+   dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
+   Ylm = CYlmBasis(lmax)
+   Rn = radial_basis(nmax)
+   
+   if !isempty(categories)
+      # Read categories from x
+      cat(x) = [ x[i].cat for i = 1:length(x) ]
+      # Define categorical bases
+      # δs = CateBasis(categories) # TODO: this is not yet in P4ML ??
    end
    
-   Ylm = CYlmBasis(totdeg)
+   spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
+   bA = P4ML.PooledSparseProduct(spec1pidx)
    
+   Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
+   bAA = P4ML.SparseSymmProd(Spec)
+   
+   # wrapping into lux layers
+   l_Rn = P4ML.lux(Rn)
+   l_Ylm = P4ML.lux(Ylm)
+   # l_δs = P4ML.lux(δs)
+   l_bA = P4ML.lux(bA)
+   l_bAA = P4ML.lux(bAA)
+   
+   # @assert Polynomials4ML.reconstruct_spec(l_bAA.basis) == Spec
+   # The output of l_bAA may not be in the same order as Spec
+   # Here we generate a permutation mapping to ensure this
+   
+   Spec_after = Polynomials4ML.reconstruct_spec(l_bAA.basis)
+   dict = Dict([Spec_after[i] => i for i = 1 : length(Spec_after)])
+   pos = [ dict[sort(Spec[i])] for i = 1:length(Spec) ]
+   
+   # formming model with Lux Chain
+   _norm(x) = norm.(x)
+   
+   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
+   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+   
+   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
+   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
+      
+   return luxchain, ps, st
+end
+
+# Adding symmetrisation layer
+# This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
+# What can be adjusted in its input are: (1) spec_nlm as the specification of the AA bases; (2) largest L
+# (3) a set of categories; (4) specified radial basis; (5) symmetry group; ...
+
+function equivariant_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
+   # first filt out those unfeasible spec_nlm
+   filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
+   spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
+   
+   # sort!(spec_nlm, by = x -> length(x))
+   spec_nlm = closure(spec_nlm,filter_init)
+   
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, d, categories; radial_basis = radial_basis)
+   F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
+
+   if islong
+   # initialize C and spec_nlm
+      C = Vector{Any}(undef,L+1)
+      pos = Vector{Any}(undef,L+1)
+   
+      for l = 0:L
+         filter = RPE_filter(l)
+         cgen = Rot3DCoeffs(l) # TODO: this should be made group related
+
+         tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
+         C[l+1] = _rpi_A2B_matrix(cgen, tmp)
+         pos[l+1] = findall(x -> filter(x) == 1, spec_nlm) # [ dict[tmp[j]] for j = 1:length(tmp)]
+      end
+   else
+      cgen = Rot3DCoeffs(L) # TODO: this should be made group related
+      C = _rpi_A2B_matrix(cgen, spec_nlm)
+   end
+   
+   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
+
+   # C - A2Bmap
+   luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
+   
+   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
+   
+   return luxchain, ps, st
+end
+
+# make spec_nlm to be a "complete" set to be symmetrised
+function closure(spec_nlm,filter)
+   specnlm = Vector{Vector{NamedTuple}}()
+   nl_list = []
+   for spec in spec_nlm
+      n_list = [ spec[i].n for i = 1:length(spec) ]
+      l_list = [ spec[i].l for i = 1:length(spec) ]
+      if (n_list,l_list) ∉ nl_list
+         push!(nl_list,(n_list,l_list))
+         push!(specnlm, _close(n_list,l_list,filter)...)
+      end
+   end
+   return sort.(specnlm) |> unique
+end
+
+function _close(nn::Vector{Int64},ll::Vector{Int64},filter)
+   spec = Vector{Vector{NamedTuple}}()
+   mm = CartesianIndices(ntuple(i -> -ll[i]:ll[i], length(ll))) |> collect
+   for m in mm 
+      spec_tmp = [(n=nn[i], l = ll[i], m = m.I[i]) for i = 1:length(ll)]
+      if filter(spec_tmp)
+         push!(spec,spec_tmp)
+      end
+   end
+   return spec |> unique
+end
+
+# _close(nn,ll,L::Int64,islong::Bool) = islong ? _close(nn,ll,RPE_filter_long(L)) : _close(nn,ll,RPE_filter(L))
+# 
+# With the above, the input could simply be an nnlllist (nlist,llist)
+function equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
+   filter = islong ? RPE_filter_long(L) : RPE_filter(L)
+   return equivariant_model(_close(nn,ll,filter),L,d,categories;radial_basis,group,islong)
+end
+
+function degord2spec_nlm(totdeg,ν,L; radial_basis = legendre_basis, wL = 1, islong = true)
+   Rn = radial_basis(totdeg)
+   Ylm = CYlmBasis(totdeg)
+
    spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
    spec1pidx = getspec1idx(spec1p, Rn, Ylm)
-   
+
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
    default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totdeg
-   
-   specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
+
+   # to construct SS, SD blocks
+   filter_ = islong ? RPE_filter_long(L) : RPE_filter(L)
+
+   specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter_, 
                         admissible = default_admissible,
                         minvv = fill(0, ν), 
                         maxvv = fill(length(spec1p), ν), 
@@ -190,32 +323,48 @@ function luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg), 
 
    spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
    # map back to nlm
-   spec_nlm = getspecnlm(spec1p, spec)
+   return getspecnlm(spec1p, spec)
+end
+
+equivariant_model(totdeg::Int64, ν::Int64, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true) = 
+     equivariant_model(degord2spec_nlm(totdeg,ν,L; radial_basis=radial_basis,islong=islong),L,d,categories;radial_basis,group,islong)
+
+## The following are SYYVector-related codes - which we might want to either use or get rid of someday...
+
+# This constructor builds a lux chain that maps a configuration to the corresponding B^L vector 
+# or [B^0, B^1, ... B^L] vector, depending on whether islong == true
+# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
+# (4) weight of the order of spherical harmonics; (5) specified radial basis
+
+function equivariant_SYY_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3")
+   filter_init = RPE_filter_long(L)
+   spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
+   # sort!(spec_nlm, by = x -> length(x))
+   spec_nlm = closure(spec_nlm,filter_init)
+   
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, d, categories; radial_basis = radial_basis)
+   F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
+   
+   cgen = Rot3DCoeffs_long(L) # TODO: this should be made group related
    C = _rpi_A2B_matrix(cgen, spec_nlm)
-
-   # acemodel with lux layers
-   bA = P4ML.PooledSparseProduct(spec1pidx)
-   bAA = P4ML.SparseSymmProd(spec)
-
-   # wrapping into lux layers
-   l_Rn = P4ML.lux(Rn)
-   l_Ylm = P4ML.lux(Ylm)
-   l_bA = P4ML.lux(bA)
-   l_bAA = P4ML.lux(bAA)
-
-   # formming model with Lux Chain
-   _norm(x) = norm.(x)
-
-   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
-   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
-
+   l_sym = WrappedFunction(x -> C * x)
+   
    # C - A2Bmap
-   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = WrappedFunction(x -> C * x))#, rAA = WrappedFunction(ComplexF64))
+   luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
+   
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
-                        
+   
    return luxchain, ps, st
 end
+
+equivariant_SYY_model(totdeg::Int64,ν::Int64,L::Int64,d=3,categories=[];radial_basis = legendre_basis,group = "O3") = 
+   equivariant_SYY_model(degord2spec_nlm(totdeg,ν,L; radial_basis=radial_basis,islong=true),L,d,categories;radial_basis,group)
+
+equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3") = 
+   equivariant_SYY_model(_close(nn,ll,RPE_filter_long(L)),L,d,categories;radial_basis,group)
+   
+## TODO: The following should eventually go into ACEhamiltonians.jl rather than this package
 
 # mapping from long vector to spherical matrix
 using RepLieGroups.O3: ClebschGordan
@@ -295,82 +444,6 @@ function equivariant_luxchain_constructor(totdeg,ν,L; wL = 1, Rn = legendre_bas
    luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = WrappedFunction(x -> C * x), blocks = l_seperate)#, rAA = WrappedFunction(ComplexF64))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
                         
-   return luxchain, ps, st
-end
-
-# This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
-# What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
-# (4) weight of the order of spherical harmonics; (5) specified radial basis
-function luxchain_constructor_multioutput(totdeg,ν,L; wL = 1, Rn = legendre_basis(totdeg))
-   Ylm = CYlmBasis(totdeg)
-
-   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
-   spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
-
-   # define sparse for n-correlations
-   tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
-   default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totdeg
-
-   # initialize C and spec_nlm
-   C = Vector{Any}(undef,L+1)
-   # spec_nlm = Vector{Any}(undef,L+1)
-   spec = Vector{Any}(undef,L+1)
-
-   # Spec = []
-   
-   for l = 0:L
-      filter = RPE_filter(l)
-      cgen = Rot3DCoeffs(l)
-      specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
-                        admissible = default_admissible,
-                        minvv = fill(0, ν), 
-                        maxvv = fill(length(spec1p), ν), 
-                        ordered = true)
-
-      spec[l+1] = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
-      # Spec = Spec ∪ spec
-
-      spec_nlm = getspecnlm(spec1p, spec[l+1])
-      C[l+1] = _rpi_A2B_matrix(cgen, spec_nlm)
-   end
-   # return C, spec, spec_nlm
-   # acemodel with lux layers
-   bA = P4ML.PooledSparseProduct(spec1pidx)
-   
-   #
-   filter = RPE_filter_long(L)
-   specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter, 
-                     admissible = default_admissible,
-                     minvv = fill(0, ν), 
-                     maxvv = fill(length(spec1p), ν), 
-                     ordered = true)
-
-   Spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
-   dict = Dict([Spec[i] => i for i = 1:length(Spec)])
-   pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
-   # @show typeof(pos)
-   # return C, spec, Spec
-   
-   bAA = P4ML.SparseSymmProd(Spec)
-   
-   # wrapping into lux layers
-   l_Rn = P4ML.lux(Rn)
-   l_Ylm = P4ML.lux(Ylm)
-   l_bA = P4ML.lux(bA)
-   l_bAA = P4ML.lux(bAA)
-   
-   # formming model with Lux Chain
-   _norm(x) = norm.(x)
-   
-   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
-   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
-   l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
-   
-   # C - A2Bmap
-   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate)#, rAA = WrappedFunction(ComplexF64))
-   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
-   
    return luxchain, ps, st
 end
 
@@ -477,88 +550,5 @@ function equivariant_luxchain_constructor_new(totdeg,ν,L; wL = 1, Rn = legendre
    luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_seperate, inter = WrappedFunction(x -> [x[i] for i = 1:length(x)]), B = l_condensed)#, rAA = WrappedFunction(ComplexF64))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
-   return luxchain, ps, st
-end
-
-##
-# This constructor builds a lux chain that maps a configuration to the corresponding B^0 to B^L vectors 
-# What can be adjusted in its input are: (1) spec_nlm as the specification of the AA bases; (2) largest L
-# (3) a set of categories; (4) specified radial basis; (5) symmetry group; ...
-
-function specnlm2spec1p(spec_nlm)
-   spec1p = union(spec_nlm...)
-   lmax = [ spec1p[i].l for i = 1:length(spec1p) ] |> maximum
-   nmax = [ spec1p[i].n for i = 1:length(spec1p) ] |> maximum
-   return spec1p, lmax, nmax + 1
-end
-
-function equivariant_model(spec_nlm, L, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
-   # first filt out those unfeasible spec_nlm
-   filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
-   spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
-   
-   # from spec_nlm to all possible spec1p
-   spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
-   dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
-   Ylm = CYlmBasis(lmax)
-   Rn = radial_basis(nmax)
-   
-   if !isempty(categories)
-      # Read categories from x
-      cat(x) = [ x[i].cat for i = 1:length(x) ]
-      # Define categorical bases
-      # δs = CateBasis(categories) # TODO: this is not yet in P4ML ??
-   end
-   
-   spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
-   bA = P4ML.PooledSparseProduct(spec1pidx)
-
-   if islong
-   # initialize C and spec_nlm
-      C = Vector{Any}(undef,L+1)
-      spec = Vector{Any}(undef,L+1)
-   
-      for l = 0:L
-         filter = RPE_filter(l)
-         cgen = Rot3DCoeffs(l) # TODO: this should be made group related
-
-         tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
-         C[l+1] = _rpi_A2B_matrix(cgen, tmp)
-         spec[l+1] = [ [dict_spec1p[tmp[k][j]] for j = 1:length(tmp[k])] for k = 1:length(tmp) ]
-      end
-
-      # filter = RPE_filter_long(L)
-      # tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
-      Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
-      dict = Dict([Spec[i] => i for i = 1:length(Spec)])
-      pos = [ [dict[spec[k][j]] for j = 1:length(spec[k])] for k = 1:L+1 ]
-   
-      bAA = P4ML.SparseSymmProd(Spec)
-   else
-      cgen = Rot3DCoeffs(L) # TODO: this should be made group related
-      C = _rpi_A2B_matrix(cgen, spec_nlm)
-      Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
-      bAA = P4ML.SparseSymmProd(Spec)
-   end
-   
-   # wrapping into lux layers
-   l_Rn = P4ML.lux(Rn)
-   l_Ylm = P4ML.lux(Ylm)
-   # l_δs = P4ML.lux(δs)
-   l_bA = P4ML.lux(bA)
-   l_bAA = P4ML.lux(bAA)
-   
-   # formming model with Lux Chain
-   _norm(x) = norm.(x)
-   
-   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
-   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
-   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
-   # l_seperate = Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... )
-   
-   # C - A2Bmap
-   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, BB = l_sym)#, rAA = WrappedFunction(ComplexF64))
-   ps, st = Lux.setup(MersenneTwister(1234), luxchain)
-      
    return luxchain, ps, st
 end
