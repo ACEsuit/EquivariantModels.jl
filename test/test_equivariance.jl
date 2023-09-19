@@ -73,7 +73,7 @@ for ntest = 1:10
    for l = 2:L
       D = wigner_D(l-1,Matrix(Q))'
       # D = wignerD(l-1, 0, 0, θ)
-      print_tf(@test norm.(Ref(D') .* F(X)[l] - F(QX)[l]) |> norm <1e-8)
+      print_tf(@test norm.(Ref(D') .* F(X)[l] - F(QX)[l]) |> norm <1e-12)
    end
 end
 println()
@@ -85,7 +85,7 @@ L = Lmax
 luxchain, ps, st = equivariant_model(totdeg,ν,L;islong = true);
 F(X) = luxchain(X, ps, st)[1]
 
-for l = 0:4
+for l = 0:Lmax
    @info("Consistency check for L = $l")
    local FF, luxchain, ps, st
    luxchain, ps, st = equivariant_model(totdeg,ν,l;islong = false)
@@ -230,7 +230,7 @@ for ntest = 1:10
       # D1 = wignerD(l1, 0, 0, θ)
       # D2 = wignerD(l2, 0, 0, θ)
       if F(X)[i] |> length ≠ 0
-         print_tf(@test norm(Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i]) < 1e-8) 
+         print_tf(@test norm(Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i]) < 1e-12) 
       end
    end
 end
