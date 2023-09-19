@@ -5,6 +5,8 @@ using ACEbase.Testing: print_tf
 using Rotations, WignerD, BlockDiagonals
 using LinearAlgebra
 
+include("wigner.jl")
+
 @info("Testing the chain that generates a single B basis")
 totdeg = 6
 ν = 2
@@ -20,13 +22,16 @@ for L = 0:Lmax
    
    @info("Tesing L = $L O(3) equivariance")
    for _ = 1:30
-      local X, θ, Q, QX
+      local X, θ1, θ2, θ3, Q, QX
       X = [ @SVector(rand(3)) for i in 1:10 ]
-      θ = rand() * 2pi
-      Q = RotXYZ(0, 0, θ)
+      θ1 = rand() * 2pi
+      θ2 = rand() * 2pi
+      θ3 = rand() * 2pi
+      Q = RotXYZ(θ1, θ2, θ3)
       # Q = rand_rot()
       QX = [SVector{3}(x) for x in Ref(Q) .* X]
-      D = wignerD(L, 0, 0, θ)
+      D = wigner_D(L,Matrix(Q))'
+      # D = wignerD(L, θ, θ, θ)
       if L == 0
          print_tf(@test F(X) ≈ F(QX))
       else
@@ -55,16 +60,19 @@ luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec_nlm(totdeg
 F2(X) = luxchain(X, ps2, st2)[1]
 
 for ntest = 1:10
-   local X, θ, Q, QX
+   local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   θ = rand() * 2pi
-   Q = RotXYZ(0, 0, θ)
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
    
    print_tf(@test F(X)[1] ≈ F(QX)[1])
 
    for l = 2:L
-      D = wignerD(l-1, 0, 0, θ)
+      D = wigner_D(l-1,Matrix(Q))'
+      # D = wignerD(l-1, 0, 0, θ)
       print_tf(@test norm.(Ref(D') .* F(X)[l] - F(QX)[l]) |> norm <1e-8)
    end
 end
@@ -145,12 +153,14 @@ F2(X) = luxchain(X, ps2, st2)[1]
 @info("Tesing L = $L O(3) full equivariance")
 
 for ntest = 1:20
-   local X, θ, Q, QX
+   local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   θ = rand() * 2pi
-   Q = RotXYZ(0, 0, θ)
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   D = BlockDiagonal([ wignerD(l, 0, 0, θ) for l = 0:L] )
+   D = BlockDiagonal([ wigner_D(l,Matrix(Q))' for l = 0:L] )
    
    print_tf(@test Ref(D) .* F(QX) ≈ F(X))
 end
@@ -178,12 +188,14 @@ F(X) = luxchain(X, ps, st)[1]
 @info("Tesing L = $L O(3) full equivariance")
 
 for ntest = 1:20
-   local X, θ, Q, QX
+   local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   θ = rand() * 2pi
-   Q = RotXYZ(0, 0, θ)
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   D = BlockDiagonal([ wignerD(l, 0, 0, θ) for l = 0:L] )
+   D = BlockDiagonal([ wigner_D(l,Matrix(Q))' for l = 0:L] )
    
    print_tf(@test Ref(D) .* F(QX) ≈ F(X))
 end
@@ -204,15 +216,19 @@ F(X) = luxchain(X, ps, st)[1]
 @info("Equivariance test")
 l1l2set = [(l1,l2) for l1 = 0:L for l2 = 0:L-l1]
 for ntest = 1:10
-   local X, θ, Q, QX
+   local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   θ = rand() * 2pi
-   Q = RotXYZ(0, 0, θ)
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
 
    for (i,(l1,l2)) in enumerate(l1l2set)
-      D1 = wignerD(l1, 0, 0, θ)
-      D2 = wignerD(l2, 0, 0, θ)
+      D1 = wigner_D(l1,Matrix(Q))'
+      D2 = wigner_D(l2,Matrix(Q))'
+      # D1 = wignerD(l1, 0, 0, θ)
+      # D2 = wignerD(l2, 0, 0, θ)
       if F(X)[i] |> length ≠ 0
          print_tf(@test norm(Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i]) < 1e-8) 
       end
@@ -228,16 +244,20 @@ luxchain, ps, st = EquivariantModels.equivariant_luxchain_constructor_new(totdeg
 F(X) = luxchain(X, ps, st)[1]
 
 for ntest = 1:10
-   local X, θ, Q, QX
+   local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   θ = rand() * 2pi
-   Q = RotXYZ(0, 0, θ)
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
 
    for i = 1:length(F(X))
       l1,l2 = Int.(size(F(X)[i][1]).-1)./2
-      D1 = wignerD(l1, 0, 0, θ)
-      D2 = wignerD(l2, 0, 0, θ)
+      D1 = wigner_D(Int(l1),Matrix(Q))'
+      D2 = wigner_D(Int(l2),Matrix(Q))'
+      # D1 = wignerD(l1, 0, 0, θ)
+      # D2 = wignerD(l2, 0, 0, θ)
       print_tf(@test Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i] |> norm < 1e-12)
    end
 end

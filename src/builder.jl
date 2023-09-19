@@ -376,8 +376,8 @@ function cgmatrix(L1,L2)
       for l = 0:L1+L2
          if abs(ν)<=l
             position = ν + l + 1
-            # cgm[i, l^2+position] = (-1)^q * cg(L1,p,L2,q,l,ν) 
-            cgm[i, l^2+position] = cg(L1,p,L2,q,l,ν) 
+            cgm[i, l^2+position] = (-1)^q * cg(L1,p,L2,q,l,ν) 
+            # cgm[i, l^2+position] = cg(L1,p,L2,q,l,ν) 
             # cgm[i, l^2+position] = (-1)^q * sqrt( (2L1+1) * (2L2+1) ) / 2 / sqrt(π * (2l+1)) * cg(L1,0,L2,0,l,0) * cg(L1,p,L2,q,l,ν) 
          end
       end
