@@ -109,7 +109,7 @@ println()
 @info("Tesing the last way of input - given n_list and l_list")
 
 for L = 0:Lmax
-   local F, luxchain, ps, st
+   local F, luxchain, ps, st, nn, ll
    
    nn = rand(0:2,4)
    ll = rand(0:2,4)
