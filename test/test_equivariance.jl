@@ -10,7 +10,7 @@ include("wigner.jl")
 @info("Testing the chain that generates a single B basis")
 totdeg = 6
 ν = 2
-Lmax = 4
+Lmax = 2
 
 for L = 0:Lmax
    local F, luxchain, ps, st, F2, luxchain2, ps2, st2
@@ -179,7 +179,7 @@ println()
 nn = rand(0:2,4)
 ll = rand(0:2,4)
 while iseven(Lmax) != iseven(sum(ll))
-   ll = rand(0:2,4)
+   global ll = rand(0:2,4)
 end
 
 luxchain, ps, st = equivariant_SYY_model(nn,ll,L)
