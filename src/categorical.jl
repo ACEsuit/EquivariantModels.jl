@@ -1,3 +1,6 @@
+using Polynomials4ML
+using Polynomials4ML: AbstractPoly4MLBasis
+using StaticArrays: SVector
 
 export CategoricalBasis
 
@@ -22,6 +25,7 @@ Base.length(list::SList) = length(list.list)
 Base.rand(list::SList) = rand(list.list)
 
 i2val(list::SList, i::Integer) = list.list[i]
+
 # should we implement Base.getindex instead / in addition? 
 
 Base.iterate(list::SList, args...) = iterate(list.list, args...)
@@ -75,7 +79,7 @@ evaluate(P, State(u = :x))
 Warning : the list of categories is internally stored as an SVector 
 which means that lookup scales linearly with the number of categories
 """
-struct CategoricalBasis{LEN, T}
+struct CategoricalBasis{LEN, T} <: AbstractPoly4MLBasis
    categories::SList{LEN, T}
    meta::Dict{String, Any}
 end
@@ -85,6 +89,10 @@ Base.length(B::CategoricalBasis) = length(B.categories)
 CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) = 
       CategoricalBasis(SList(categories), meta)
 
+      
+Polynomials4ML._outsym(x::Char) = :char
+Polynomials4ML._out_size(basis::CategoricalBasis, x) = (length(basis),)
+Polynomials4ML._valtype(basis::CategoricalBasis, x) = Bool
 
 # should the output be somethign like this?
 # struct Ei 
@@ -94,22 +102,22 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
 
 # the next few functions need to be adapted to P4ML / Lux  
 
-function evaluate(basis::CategoricalBasis, X::AbstractState)      
+function Polynomials4ML.evaluate(basis::CategoricalBasis, X)      
    # some abstract vector 
    A = Vector{Bool}(undef, length(basis))
    return evaluate!(A, basis, X)
 end
 
-function ACE.evaluate!(A, basis::CategoricalBasis, X::AbstractState)
+function Polynomials4ML.evaluate!(A, basis::CategoricalBasis, X)
    fill!(A, false)
-   A[val2i(basis.categories, _val(X, basis))] = true
+   A[val2i(basis.categories, X)] = true
    return A
 end
 
 # natural_indices 
-indexrange(basis::CategoricalBasis) = Dict( _isym(basis) => basis.categories.list )
+Polynomials4ML.natural_indices(basis::CategoricalBasis) = basis.categories.list
 
-Base.rand(basis::CategoricalBasis) = rand(basis.list)
+Base.rand(basis::CategoricalBasis) = rand(basis.categories)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
