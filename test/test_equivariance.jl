@@ -14,7 +14,7 @@ Lmax = 2
 
 for L = 0:Lmax
    local F, luxchain, ps, st, F2, luxchain2, ps2, st2
-   luxchain, ps, st = equivariant_model(totdeg,ν,L;islong = false)
+   luxchain, ps, st = equivariant_model(totdeg, ν, L;islong = false)
    F(X) = luxchain(X, ps, st)[1]
    
    luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec(;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],L;islong = false)
@@ -182,7 +182,7 @@ while iseven(Lmax) != iseven(sum(ll))
    global ll = rand(0:2,4)
 end
 
-luxchain, ps, st = equivariant_SYY_model(nn,ll,L)
+luxchain, ps, st = equivariant_SYY_model(nn, ll, L)
 F(X) = luxchain(X, ps, st)[1]
 
 @info("Tesing L = $L O(3) full equivariance")
