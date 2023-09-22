@@ -300,30 +300,32 @@ function equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64, d=3, 
    return equivariant_model(_close(nn,ll,filter),L,d,categories;radial_basis,group,islong)
 end
 
-function degord2spec_nlm(totdeg,ν,L; radial_basis = legendre_basis, wL = 1, islong = true)
-   Rn = radial_basis(totdeg)
-   Ylm = CYlmBasis(totdeg)
+function degord2spec(;totaldegree,order,Lmax,radial_basis = legendre_basis, wL = 1, islong = true)
+   Rn = radial_basis(totaldegree)
+   Ylm = CYlmBasis(totaldegree)
 
-   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
+   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totaldegree, admissible = (br, by) -> br + wL * by.l <= totaldegree)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
    spec1pidx = getspec1idx(spec1p, Rn, Ylm)
 
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
-   default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totdeg
+   default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totaldegree
 
    # to construct SS, SD blocks
-   filter_ = islong ? RPE_filter_long(L) : RPE_filter(L)
+   filter_ = islong ? RPE_filter_long(Lmax) : RPE_filter(Lmax)
 
-   specAA = gensparse(; NU = ν, tup2b = tup2b, filter = filter_, 
+   specAA = gensparse(; NU = order, tup2b = tup2b, filter = filter_, 
                         admissible = default_admissible,
-                        minvv = fill(0, ν), 
-                        maxvv = fill(length(spec1p), ν), 
+                        minvv = fill(0, order), 
+                        maxvv = fill(length(spec1p), order), 
                         ordered = true)
 
    spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
    # map back to nlm
-   return getspecnlm(spec1p, spec)
+   AAspec = getspecnlm(spec1p, spec)
+   Aspec = specnlm2spec1p(AAspec)[1]
+   return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
 
 equivariant_model(totdeg::Int64, ν::Int64, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true) = 
