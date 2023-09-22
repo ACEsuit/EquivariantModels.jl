@@ -258,7 +258,8 @@ function equivariant_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=
    l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
 
    # C - A2Bmap
-   luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
+   # luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
+   luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
    
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
@@ -329,7 +330,7 @@ function degord2spec(;totaldegree,order,Lmax,radial_basis = legendre_basis, wL =
 end
 
 equivariant_model(totdeg::Int64, ν::Int64, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true) = 
-     equivariant_model(degord2spec_nlm(totdeg,ν,L; radial_basis=radial_basis,islong=islong),L,d,categories;radial_basis,group,islong)
+     equivariant_model(degord2spec(;totaldegree=totdeg,order=ν,Lmax=L,radial_basis=radial_basis,islong=islong)[2],L,d,categories;radial_basis,group,islong)
 
 ## The following are SYYVector-related codes - which we might want to either use or get rid of someday...
 
@@ -353,7 +354,8 @@ function equivariant_SYY_model(spec_nlm, L::Int64, d=3, categories=[]; radial_ba
    l_sym = WrappedFunction(x -> C * x)
    
    # C - A2Bmap
-   luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
+   # luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
+   luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
    
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
@@ -361,7 +363,7 @@ function equivariant_SYY_model(spec_nlm, L::Int64, d=3, categories=[]; radial_ba
 end
 
 equivariant_SYY_model(totdeg::Int64,ν::Int64,L::Int64,d=3,categories=[];radial_basis = legendre_basis,group = "O3") = 
-   equivariant_SYY_model(degord2spec_nlm(totdeg,ν,L; radial_basis=radial_basis,islong=true),L,d,categories;radial_basis,group)
+   equivariant_SYY_model(degord2spec(;totaldegree=totdeg,order=ν,Lmax=L,radial_basis=radial_basis,islong=true)[2],L,d,categories;radial_basis,group)
 
 equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3") = 
    equivariant_SYY_model(_close(nn,ll,RPE_filter_long(L)),L,d,categories;radial_basis,group)

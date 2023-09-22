@@ -21,4 +21,5 @@ chain_AA2B, ps2, st2 = equivariant_model(AAspec, maxL)
 X = [ @SVector(rand(3)) for i in 1:10 ]
 
 chain_xx2AA(X, ps1, st1)
+
 chain_AA2B(X, ps2, st2)
