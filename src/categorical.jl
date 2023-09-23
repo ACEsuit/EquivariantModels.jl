@@ -91,8 +91,8 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
 
       
 Polynomials4ML._outsym(x::Char) = :char
-Polynomials4ML._out_size(basis::CategoricalBasis, x) = (length(basis),)
-Polynomials4ML._valtype(basis::CategoricalBasis, x) = Bool
+Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(basis),)
+Polynomials4ML._valtype(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = Bool
 
 # should the output be somethign like this?
 # struct Ei 
