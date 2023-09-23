@@ -91,8 +91,8 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
 
       
 Polynomials4ML._outsym(x::Char) = :char
-Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(basis),)
-Polynomials4ML._valtype(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = Bool
+Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = (length(basis),)
+Polynomials4ML._valtype(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = Bool
 
 # should the output be somethign like this?
 # struct Ei 
@@ -102,13 +102,21 @@ Polynomials4ML._valtype(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LE
 
 # the next few functions need to be adapted to P4ML / Lux  
 
-function Polynomials4ML.evaluate(basis::CategoricalBasis, X)      
+function Polynomials4ML.evaluate(basis::CategoricalBasis{LEN, T}, X::T) where {LEN,T}   
    # some abstract vector 
-   A = Vector{Bool}(undef, length(basis))
+   A = Vector{Bool}(undef, LEN)
    return evaluate!(A, basis, X)
 end
 
-function Polynomials4ML.evaluate!(A, basis::CategoricalBasis, X)
+function Polynomials4ML.evaluate(basis::CategoricalBasis{LEN, T}, X::Vector{T}) where {LEN,T}
+   A = Vector{Bool}(undef, length(X), LEN)
+   for i = 1:length(X)
+      A[i,:] = evaluate!(A[i,:], basis, X[i])
+   end
+   return A
+end
+
+function Polynomials4ML.evaluate!(A, basis::CategoricalBasis{LEN, T}, X::T) where {LEN,T}  
    fill!(A, false)
    A[val2i(basis.categories, X)] = true
    return A
