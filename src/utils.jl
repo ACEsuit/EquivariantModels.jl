@@ -41,6 +41,24 @@ function getspec1idx(spec1, bRnl, bYlm)
    return spec1idx
 end
 
+function getspec1idx(spec1, bRnl, bYlm, bδs)
+   spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
+   
+   spec_Rnl = natural_indices(bRnl)
+   spec_Rnl = [(n = i, ) for i in spec_Rnl]
+   inv_Rnl = _invmap(spec_Rnl)
+
+   spec_Ylm = natural_indices(bYlm); inv_Ylm = _invmap(spec_Ylm)
+   
+   slist = bδs.categories
+
+   spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
+   for (i, b) in enumerate(spec1)
+      spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l, :s))], inv_Ylm[(l=b.l, m=b.m)], val2i(slist, b.s))
+   end
+   return spec1idx
+end
+
 """
 make_nlms_spec(bRnl, bYlm)
 Return a vector of tuples of indices of spec1 w.r.t naural indices (i.e. (n = ..., l = ..., m = ...) ) of bRnl and bYlm
@@ -154,7 +172,7 @@ end
 degord2spec(;totaldegree, order, Lmax, radial_basis = legendre_basis, wL = 1, islong = true)
 Return a list of AA specifications and A specifications
 """
-function degord2spec(;totaldegree, order, Lmax, radial_basis = legendre_basis, wL = 1, islong = true)
+function degord2spec(;totaldegree, order, Lmax, catagories = [], radial_basis = legendre_basis, wL = 1, islong = true)
    Rn = radial_basis(totaldegree)
    Ylm = CYlmBasis(totaldegree)
 
@@ -178,6 +196,9 @@ function degord2spec(;totaldegree, order, Lmax, radial_basis = legendre_basis, w
    spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
    # map back to nlm
    AAspec = getspecnlm(spec1p, spec)
+   # if !isempty(catagories)
+   #    AAspec = extend(AAspec, catagories)
+   # end
    Aspec = specnlm2spec1p(AAspec)[1]
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end

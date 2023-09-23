@@ -98,10 +98,14 @@ function xx2AA(spec_nlm, d=3, categories=[]; radial_basis = legendre_basis) # Co
    Rn = radial_basis(nmax)
    
    if !isempty(categories)
-      # Read categories from x
-      cat(x) = [ x[i].cat for i = 1:length(x) ]
+      # Read categories from x - TODO: discuss which format we like it to be...
+      # For now we just give get_cat(x) a random value
+      get_cat(x) = rand(categories)[1]
+      _get_cat(x) = get_cat.(x)
+      
       # Define categorical bases
-      # δs = CateBasis(categories) # TODO: this is not yet in P4ML ??
+      δs = CategoricalBasis(categories)
+      l_δs = P4ML.lux(δs)
    end
    
    spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
@@ -113,7 +117,6 @@ function xx2AA(spec_nlm, d=3, categories=[]; radial_basis = legendre_basis) # Co
    # wrapping into lux layers
    l_Rn = P4ML.lux(Rn)
    l_Ylm = P4ML.lux(Ylm)
-   # l_δs = P4ML.lux(δs)
    l_bA = P4ML.lux(bA)
    l_bAA = P4ML.lux(bAA)
    
@@ -128,8 +131,13 @@ function xx2AA(spec_nlm, d=3, categories=[]; radial_basis = legendre_basis) # Co
    # formming model with Lux Chain
    _norm(x) = norm.(x)
    
-   l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
-   l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+   if isempty(categories)
+      l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
+      l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+   else
+      l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity), catlist = WrappedFunction(_get_cat))
+      l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm, δs = l_δs)
+   end
    
    luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
