@@ -177,8 +177,8 @@ function equivariant_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=
    l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
 
    # C - A2Bmap
-   # luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
-   luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
+   luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
+   # luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
    
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
@@ -219,8 +219,8 @@ function equivariant_SYY_model(spec_nlm, L::Int64, d=3, categories=[]; radial_ba
    l_sym = WrappedFunction(x -> C * x)
    
    # C - A2Bmap
-   # luxchain = Chain(xx2AA = WrappedFunction(x -> F(x)), BB = l_sym)
-   luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
+   luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
+   # luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
    
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
    
