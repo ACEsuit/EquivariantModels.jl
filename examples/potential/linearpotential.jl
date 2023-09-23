@@ -1,6 +1,10 @@
 using EquivariantModels, Lux, StaticArrays, Random 
 using Polynomials4ML: LinearLayer
 using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA
+using ACEbase.Testing: println_slim, print_tf, fdtest
+using Test
+
+
 rng = Random.MersenneTwister()
 
 maxL = 0
@@ -28,6 +32,30 @@ model = append_layer(chain_AA2B, WrappedFunction(t -> real.(t[1])); l_name = :ge
 model = append_layer(model, LinearLayer(length(B[1]), 1); l_name = :dot)
 
 ps, st = Lux.setup(rng, model)
+
+using Zygote, LinearAlgebra
+F(X) = model(X, ps, st)[1]
+dF(X) = Zygote.gradient(X -> model(X, ps, st)[1][1], X)[1]
+
+F(X)
+dF(X)
+
+l = model
+@info("Quick test gradient") # do it this way for us to check vector output if we want i.e. LinearLayer(length(B[1]), out_dim) with out_dim > 1
+for ntest = 1:30
+   x = [ @SVector(randn(3)) for i in 1:10 ]
+   bu = [ @SVector(randn(3)) for i in 1:10 ]
+   _BB(t) = x + t * bu
+   val, _ = l(x, ps, st)
+   u = randn(size(val))
+   F(t) = dot(u, l(_BB(t), ps, st)[1])
+   dF(t) = begin
+      val, pb = Zygote.pullback(LuxCore.apply, l, _BB(t), ps, st)
+      ∂BB = pb((u, st))[2]
+   return dot(∂BB, bu)
+   end
+   print_tf(@test fdtest(F, dF, 0.0; verbose=false))
+end
 
 ##
 
