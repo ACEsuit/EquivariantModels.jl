@@ -48,32 +48,68 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
       
       nn = SVector([onep.n for onep in pib]...)
       ll = SVector([onep.l for onep in pib]...) # get a SVector of ll index
+      if haskey(pib[1],:s)
+         ss = SVector([onep.s for onep in pib]...)
+      end
       
-      if (nn,ll) in nnllset; continue; end
+      if haskey(pib[1],:s)
+         
+         if (nn,ll,ss) in nnllset; continue; end
 
-      # get the Mll indices and coeffs
-      U, Mll = re_basis(cgen, ll)
-      # conver the Mlls into basis functions (NamedTuples)
+         # get the Mll indices and coeffs
+         U, Mll = re_basis(cgen, ll)
+         # conver the Mlls into basis functions (NamedTuples)
       
-      rpibs = [_nlms2b(nn, ll, mm) for mm in Mll]
+         rpibs = [_nlms2b(nn, ll, mm, ss) for mm in Mll]
       
-      if size(U, 1) == 0; continue; end
-      # loop over the rows of Ull -> each specifies a basis function
-      for irow = 1:size(U, 1)
-         idxB += 1
-         # loop over the columns of U / over brows
-         for (icol, bcol) in enumerate(rpibs)
-            # look for the index of basis bcol in spec
-            bcol = sort(bcol)
-            idxAA = LinearSearch(spec, bcol)
-            if !isnothing(idxAA)
-               push!(Irow, idxB)
-               push!(Jcol, idxAA)
-               push!(vals, U[irow, icol])
+         if size(U, 1) == 0; continue; end
+         # loop over the rows of Ull -> each specifies a basis function
+         for irow = 1:size(U, 1)
+            idxB += 1
+            # loop over the columns of U / over brows
+            for (icol, bcol) in enumerate(rpibs)
+               # look for the index of basis bcol in spec
+               bcol = sort(bcol)
+               idxAA = LinearSearch(spec, bcol)
+               if !isnothing(idxAA)
+                  push!(Irow, idxB)
+                  push!(Jcol, idxAA)
+                  push!(vals, U[irow, icol])
+               end
             end
          end
+         push!(nnllset,(nn,ll,ss))
+         
+      else
+         
+         if (nn,ll) in nnllset; continue; end
+
+         # get the Mll indices and coeffs
+         U, Mll = re_basis(cgen, ll)
+         # conver the Mlls into basis functions (NamedTuples)
+      
+         rpibs = [_nlms2b(nn, ll, mm) for mm in Mll]
+      
+         if size(U, 1) == 0; continue; end
+         # loop over the rows of Ull -> each specifies a basis function
+         for irow = 1:size(U, 1)
+            idxB += 1
+            # loop over the columns of U / over brows
+            for (icol, bcol) in enumerate(rpibs)
+               # look for the index of basis bcol in spec
+               bcol = sort(bcol)
+               idxAA = LinearSearch(spec, bcol)
+               if !isnothing(idxAA)
+                  push!(Irow, idxB)
+                  push!(Jcol, idxAA)
+                  push!(vals, U[irow, icol])
+               end
+            end
+         end
+         push!(nnllset,(nn,ll))
+      
       end
-      push!(nnllset,(nn,ll))
+      
    end
    # create CSC: [   triplet    ]  nrows   ncols
    return sparse(Irow, Jcol, vals, idxB, length(spec))
@@ -90,7 +126,7 @@ d: Input dimension
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-function xx2AA(spec_nlm, d=3, categories=[]; radial_basis = legendre_basis) # Configuration to AA bases - this is what all chains have in common
+function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Configuration to AA bases - this is what all chains have in common
    # from spec_nlm to all possible spec1p
    spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
@@ -100,7 +136,7 @@ function xx2AA(spec_nlm, d=3, categories=[]; radial_basis = legendre_basis) # Co
    if !isempty(categories)
       # Read categories from x - TODO: discuss which format we like it to be...
       # For now we just give get_cat(x) a random value
-      get_cat(x) = rand(categories)[1]
+      get_cat(x) = rand(categories)
       _get_cat(x) = get_cat.(x)
       
       # Define categorical bases
@@ -153,15 +189,15 @@ L : Largest equivariance level
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-function equivariant_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true)
+function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true)
    # first filt out those unfeasible spec_nlm
    filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
    # sort!(spec_nlm, by = x -> length(x))
-   spec_nlm = closure(spec_nlm,filter_init)
+   spec_nlm = closure(spec_nlm,filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, d, categories; radial_basis = radial_basis)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
 
    if islong
@@ -194,13 +230,13 @@ function equivariant_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=
 end
 
 # more constructors equivariant_model
-equivariant_model(totdeg::Int64, ν::Int64, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3", islong=true) = 
-     equivariant_model(degord2spec(;totaldegree = totdeg, order = ν, Lmax=L, radial_basis = radial_basis, islong = islong)[2], L, d, categories; radial_basis, group, islong)
+equivariant_model(totdeg::Int64, ν::Int64, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true) = 
+     equivariant_model(degord2spec(;totaldegree = totdeg, order = ν, Lmax=L, radial_basis = radial_basis, islong = islong)[2], L; categories, d, radial_basis, group, islong)
 
 # With the _close function, the input could simply be an nnlllist (nlist,llist)
-equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64, d=3, categories=[]; radial_basis = legendre_basis, group = "O3", islong = true) = begin
+equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64; categories=[], d=3, radial_basis = legendre_basis, group = "O3", islong = true) = begin
    filter = islong ? RPE_filter_long(L) : RPE_filter(L)
-   equivariant_model(_close(nn, ll, filter), L, d, categories; radial_basis, group, islong)
+   equivariant_model(_close(nn, ll; filter = filter), L; categories, d, radial_basis, group, islong)
 end
 
 # ===== Codes that we might remove later =====
@@ -212,14 +248,14 @@ end
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
 
-function equivariant_SYY_model(spec_nlm, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3")
+function equivariant_SYY_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3")
    filter_init = RPE_filter_long(L)
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
    # sort!(spec_nlm, by = x -> length(x))
-   spec_nlm = closure(spec_nlm, filter_init)
+   spec_nlm = closure(spec_nlm, filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, d, categories; radial_basis = radial_basis)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
    
    cgen = Rot3DCoeffs_long(L) # TODO: this should be made group related
@@ -235,11 +271,11 @@ function equivariant_SYY_model(spec_nlm, L::Int64, d=3, categories=[]; radial_ba
    return luxchain, ps, st
 end
 
-equivariant_SYY_model(totdeg::Int64, ν::Int64, L::Int64, d=3, categories=[]; radial_basis = legendre_basis,group = "O3") = 
-   equivariant_SYY_model(degord2spec(;totaldegree = totdeg, order = ν, Lmax = L, radial_basis = radial_basis, islong=true)[2], L , d, categories; radial_basis, group)
+equivariant_SYY_model(totdeg::Int64, ν::Int64, L::Int64; categories=[], d=3, radial_basis = legendre_basis,group = "O3") = 
+   equivariant_SYY_model(degord2spec(;totaldegree = totdeg, order = ν, Lmax = L, radial_basis = radial_basis, islong=true)[2], L; categories, d, radial_basis, group)
 
-equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64, d=3, categories=[]; radial_basis=legendre_basis, group="O3") = 
-   equivariant_SYY_model(_close(nn, ll, RPE_filter_long(L)), L, d, categories ; radial_basis, group)
+equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3") = 
+   equivariant_SYY_model(_close(nn, ll; filter = RPE_filter_long(L)), L; categories, d, radial_basis, group)
    
 ## TODO: The following should eventually go into ACEhamiltonians.jl rather than this package
 
