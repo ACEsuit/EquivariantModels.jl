@@ -109,7 +109,7 @@ function Polynomials4ML.evaluate(basis::CategoricalBasis{LEN, T}, X::T) where {L
 end
 
 function Polynomials4ML.evaluate(basis::CategoricalBasis{LEN, T}, X::Vector{T}) where {LEN,T}
-   A = Vector{Bool}(undef, length(X), LEN)
+   A = Matrix{Bool}(undef, length(X), LEN)
    for i = 1:length(X)
       A[i,:] = evaluate!(A[i,:], basis, X[i])
    end
