@@ -13,6 +13,11 @@ cats = [:O,:C]
 
 ext(x,cats) = [ (x[i]..., s = cats) for i = 1:length(x)]
 AAspec_tmp = [ ext.(AAspec,cats[1])..., ext.(AAspec,cats[2])... ] |> sort
+pos = findall(x -> length(x)>1, AAspec)
+_AAspec_tmp = [ [(AAspec[i][1]..., s = cats[1]), (AAspec[i][2]..., s = cats[2])] for i in pos ]
+_AAspec_tmp2 = [ [(AAspec[i][1]..., s = cats[2]), (AAspec[i][2]..., s = cats[1])] for i in pos ]
+append!(AAspec_tmp,_AAspec_tmp)
+append!(AAspec_tmp,_AAspec_tmp2)
 
 luxchain, ps, st = equivariant_model(AAspec_tmp, L; categories=cats)
 F(X) = luxchain(X, ps, st)[1]
