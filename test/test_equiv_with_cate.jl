@@ -17,6 +17,7 @@ AAspec_tmp = [[Aspec_tmp[i]] for i = 1:length(Aspec_tmp)]
 luxchain, ps, st = equivariant_model(AAspec_tmp, L; categories=cats)
 F(X) = luxchain(X, ps, st)[1]
 
+@info("Testing the equivariance of chains that contain categorical basis")
 for ntest = 1:10
    local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]

@@ -136,7 +136,7 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    if !isempty(categories)
       # Read categories from x - TODO: discuss which format we like it to be...
       # For now we just give get_cat(x) a random value
-      get_cat(x) = rand(categories)
+      get_cat(x) = length(categories) > 1 ? (iseven(floor(norm(x))) ? categories[1] : categories[2]) : categories[1]
       _get_cat(x) = get_cat.(x)
       
       # Define categorical bases
