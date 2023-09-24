@@ -172,16 +172,17 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    if isempty(categories)
       l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
       l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+      luxchain = Chain(l_xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
    else
       l_xnxz = Lux.BranchLayer(normx = WrappedFunction(x -> _norm(x[1])), x = WrappedFunction(x -> x[1]), catlist = WrappedFunction(x -> x[2]))
-      #l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity), catlist = WrappedFunction(_get_cat))
       l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm, δs = l_δs)
+      luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
    end
    
-   luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
+   # luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
       
-   return luxchain, ps, st, l_xnxz
+   return luxchain, ps, st
 end
 
 """
@@ -200,7 +201,7 @@ function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm,filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp, _ = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
 
    if islong
