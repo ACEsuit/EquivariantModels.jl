@@ -8,7 +8,6 @@ using Lux
 using Random
 using Polynomials4ML
 using StaticArrays
-using Combinatorics: permutations
 
 export equivariant_model, equivariant_SYY_model, equivariant_luxchain_constructor, equivariant_luxchain_constructor_new
 
@@ -141,8 +140,7 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
       #_get_cat(x) = get_cat.(x)
       
       # Define categorical bases
-      cat_perm2 = collect(SVector{2}.(permutations(categories, 2)))
-      δs = CategoricalBasis(cat_perm2)
+      δs = CategoricalBasis(categories)
       l_δs = P4ML.lux(δs)
    end
    
