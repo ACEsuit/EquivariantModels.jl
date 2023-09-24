@@ -17,6 +17,8 @@ for (i, c) in enumerate(elements)
    print_tf(@test (val2i(slist, c) == i) )
 end
 
+println()
+
 ## simply a basis
 
 @info("Testing Categorical Basis")
@@ -40,3 +42,4 @@ for c in elements
    l_out, st2 = l_catbasis(c, ps, st)
    println_slim(@test out == l_out)
 end
+

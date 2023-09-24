@@ -1,6 +1,8 @@
 using Polynomials4ML
-using Polynomials4ML: AbstractPoly4MLBasis
-using StaticArrays: SVector
+using Polynomials4ML: AbstractPoly4MLBasis, SphericalCoords
+using StaticArrays: SVector, StaticArray
+
+import Polynomials4ML: _valtype, _out_size, _outsym
 
 export CategoricalBasis
 
@@ -91,10 +93,17 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
 
       
 #Polynomials4ML._outsym(x::Char) = :char
-Polynomials4ML._outsym(x::T) where T = :T
-Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::T) where {LEN, T} = (LEN,)
-Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(x),LEN)
-Polynomials4ML._valtype(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = Bool
+_outsym(x::T) where T = :T
+
+const NSS = Union{Number, SphericalCoords, StaticArray}
+
+_out_size(basis::CategoricalBasis{LEN, T}, x::T) where {LEN, T} = (LEN,)
+_out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(x), LEN)
+_out_size(basis::CategoricalBasis{LEN, T}, x::NSS) where {LEN, T <: NSS} = (LEN, )
+
+_valtype(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = Bool
+_valtype(basis::CategoricalBasis{LEN, T}, x::NSS) where {LEN, T <: NSS} = Bool
+_valtype(basis::CategoricalBasis{LEN, T}, x::Vector{<:NSS}) where {LEN, T <: NSS} = Bool
 
 # should the output be somethign like this?
 # struct Ei 
