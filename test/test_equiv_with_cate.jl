@@ -11,8 +11,8 @@ Aspec, AAspec = degord2spec(; totaldegree = 4,
                                   Lmax = 0, )
 cats = [:O,:C]
 
-Aspec_tmp = [ [ (Aspec[i]..., s = cats[1]) for i = 1 : length(Aspec)]...; [ (Aspec[i]..., s = cats[2]) for i = 1 : length(Aspec)]...]
-AAspec_tmp = [[Aspec_tmp[i]] for i = 1:length(Aspec_tmp)]
+ext(x,cats) = [ (x[i]..., s = cats) for i = 1:length(x)]
+AAspec_tmp = [ ext.(AAspec,cats[1])..., ext.(AAspec,cats[2])... ] |> sort
 
 luxchain, ps, st = equivariant_model(AAspec_tmp, L; categories=cats)
 F(X) = luxchain(X, ps, st)[1]
