@@ -8,6 +8,7 @@ using Lux
 using Random
 using Polynomials4ML
 using StaticArrays
+using Combinatorics: permutations
 
 export equivariant_model, equivariant_SYY_model, equivariant_luxchain_constructor, equivariant_luxchain_constructor_new
 
@@ -49,7 +50,7 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
       nn = SVector([onep.n for onep in pib]...)
       ll = SVector([onep.l for onep in pib]...) # get a SVector of ll index
       if haskey(pib[1],:s)
-         ss = SVector([onep.s for onep in pib]...)
+         ss = [onep.s for onep in pib]
       end
       
       if haskey(pib[1],:s)
@@ -136,11 +137,12 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    if !isempty(categories)
       # Read categories from x - TODO: discuss which format we like it to be...
       # For now we just give get_cat(x) a random value
-      get_cat(x) = length(categories) > 1 ? (iseven(floor(norm(x))) ? categories[1] : categories[2]) : categories[1]
-      _get_cat(x) = get_cat.(x)
+      #get_cat(x) = length(categories) > 1 ? (iseven(floor(norm(x))) ? categories[1] : categories[2]) : categories[1]
+      #_get_cat(x) = get_cat.(x)
       
       # Define categorical bases
-      δs = CategoricalBasis(categories)
+      cat_perm2 = collect(SVector{2}.(permutations(categories, 2)))
+      δs = CategoricalBasis(cat_perm2)
       l_δs = P4ML.lux(δs)
    end
    
@@ -171,14 +173,15 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
       l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
       l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
    else
-      l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity), catlist = WrappedFunction(_get_cat))
+      l_xnxz = Lux.BranchLayer(normx = WrappedFunction(x -> _norm(x[1])), x = WrappedFunction(x -> x[1]), catlist = WrappedFunction(x -> x[2]))
+      #l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity), catlist = WrappedFunction(_get_cat))
       l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm, δs = l_δs)
    end
    
-   luxchain = Chain(xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
+   luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
       
-   return luxchain, ps, st
+   return luxchain, ps, st, l_xnxz
 end
 
 """
@@ -197,7 +200,7 @@ function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm,filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
+   luxchain_tmp, ps_tmp, st_tmp, _ = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
 
    if islong

@@ -6,7 +6,6 @@ using JuLIP
 rng = Random.MersenneTwister()
 
 ##
-include("xx2AA.jl")
 
 # == configs and form model ==
 rcut = 5.5 
@@ -31,11 +30,6 @@ end
 
 luxchain, ps, st = equivariant_model(new_AAspec, L; categories=cats)
 
-#LL, ps, st, try_xnxz = myxx2AA(new_AAspec; categories = cats)
-#tryps, tryst = Lux.setup(MersenneTwister(1234), try_xnxz)
-#try_xnxz(X, tryps, tryst)
-
-
 ##
 
 # == init example data == 
@@ -55,11 +49,13 @@ X = (Rs, Z0S)
 
 out, st = luxchain(X, ps, st)
 
+
+
 # === 
 
 
 # testing derivative (forces)
-# g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1] 
+g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1] 
 
 ##
 
