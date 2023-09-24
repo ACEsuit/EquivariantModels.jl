@@ -13,7 +13,7 @@ Aspec, AAspec = degord2spec(; totaldegree = 6,
                                   order = 3, 
                                   Lmax = maxL, )
 
-chain_xx2AA, ps1, st1 = xx2AA(AAspec, maxL)
+chain_xx2AA, ps1, st1 = xx2AA(AAspec)
 
 chain_AA2B, ps2, st2 = equivariant_model(AAspec, maxL)
 

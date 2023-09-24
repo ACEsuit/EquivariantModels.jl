@@ -90,8 +90,10 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
       CategoricalBasis(SList(categories), meta)
 
       
-Polynomials4ML._outsym(x::Char) = :char
-Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = (length(basis),)
+#Polynomials4ML._outsym(x::Char) = :char
+Polynomials4ML._outsym(x::T) where T = :T
+Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::T) where {LEN, T} = (LEN,)
+Polynomials4ML._out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(x),LEN)
 Polynomials4ML._valtype(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = Bool
 
 # should the output be somethign like this?
@@ -119,6 +121,14 @@ end
 function Polynomials4ML.evaluate!(A, basis::CategoricalBasis{LEN, T}, X::T) where {LEN,T}  
    fill!(A, false)
    A[val2i(basis.categories, X)] = true
+   return A
+end
+
+function Polynomials4ML.evaluate!(A, basis::CategoricalBasis{LEN, T}, X::Vector{T}) where {LEN,T}  
+   fill!(A, false)
+   for i = 1:length(X)
+      A[i,val2i(basis.categories, X[i])] = true
+   end
    return A
 end
 

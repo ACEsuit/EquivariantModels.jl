@@ -88,6 +88,10 @@ function _nlms2b(nn, ll, mm)
     return [(n = n, l = l, m = m) for (n, l, m) in zip(nn, ll, mm)]
 end
 
+function _nlms2b(nn, ll, mm, ss)
+    return [(n = n, l = l, m = m, s = s) for (n, l, m, s) in zip(nn, ll, mm, ss)]
+end
+
 """
 get_natural_spec(spec, spec1p)
 Get a readible version of spec
@@ -142,25 +146,45 @@ end
 closure(spec_nlm,filter)
 Make a spec_nlm to be a "complete" set to be symmetrised w.r.t to the filter
 """
-function closure(spec_nlm, filter)
+function closure(spec_nlm, filter; categories = [])
    specnlm = Vector{Vector{NamedTuple}}()
    nl_list = []
    for spec in spec_nlm
       n_list = [ spec[i].n for i = 1:length(spec) ]
       l_list = [ spec[i].l for i = 1:length(spec) ]
-      if (n_list, l_list) ∉ nl_list
-         push!(nl_list, (n_list, l_list))
-         push!(specnlm, _close(n_list, l_list, filter)...)
+      if isempty(categories)
+         if (n_list, l_list) ∉ nl_list
+            push!(nl_list, (n_list, l_list))
+            push!(specnlm, _close(n_list, l_list; filter)...)
+         end
+      else
+         s_list = [ spec[i].s for i = 1:length(spec) ]
+         if (n_list, l_list, s_list) ∉ nl_list
+            push!(nl_list, (n_list, l_list, s_list))
+            push!(specnlm, _close(n_list, l_list, s_list; filter)...)
+         end
       end
    end
    return sort.(specnlm) |> unique
 end
 
-function _close(nn::Vector{Int64}, ll::Vector{Int64}, filter)
+function _close(nn::Vector{Int64}, ll::Vector{Int64}; filter)
    spec = Vector{Vector{NamedTuple}}()
    mm = CartesianIndices(ntuple(i -> -ll[i]:ll[i], length(ll))) |> collect
    for m in mm 
       spec_tmp = [(n=nn[i], l = ll[i], m = m.I[i]) for i = 1:length(ll)]
+      if filter(spec_tmp)
+         push!(spec, spec_tmp)
+      end
+   end
+   return spec |> unique
+end
+
+function _close(nn::Vector{Int64}, ll::Vector{Int64}, ss::Vector; filter)
+   spec = Vector{Vector{NamedTuple}}()
+   mm = CartesianIndices(ntuple(i -> -ll[i]:ll[i], length(ll))) |> collect
+   for m in mm 
+      spec_tmp = [(n=nn[i], l = ll[i], m = m.I[i], s = ss[i]) for i = 1:length(ll)]
       if filter(spec_tmp)
          push!(spec, spec_tmp)
       end
