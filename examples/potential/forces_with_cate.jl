@@ -2,9 +2,11 @@ using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote
 using Polynomials4ML: LinearLayer, RYlmBasis, lux 
 using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA
 using JuLIP
+using Combinatorics: permutations
 
 rng = Random.MersenneTwister()
 
+include("staticprod.jl")
 ##
 
 # == configs and form model ==
@@ -28,7 +30,9 @@ for bb in ori_AAspec
    push!(new_AAspec, newbb)
 end
 
-luxchain, ps, st = equivariant_model(new_AAspec, L; categories=cats)
+cat_perm2 = collect(SVector{2}.(permutations(cats, 2)))
+
+luxchain, ps, st = equivariant_model(new_AAspec, 0; categories = cat_perm2, islong = false)
 
 ##
 
@@ -47,15 +51,21 @@ Z0S = get_Z0S(z0, Zs)
 # input of luxmodel
 X = (Rs, Z0S)
 
+
+# == lux chain eval and grad
 out, st = luxchain(X, ps, st)
+B = out
 
+model = append_layers(luxchain, get1 =  WrappedFunction(t -> real.(t)), dot = LinearLayer(length(B), 1), get2 = WrappedFunction(t -> t[1]))
 
+ps, st = Lux.setup(MersenneTwister(1234), model)
 
-# === 
-
+model(X, ps, st)
 
 # testing derivative (forces)
-g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1] 
+g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1]
+
+
 
 ##
 

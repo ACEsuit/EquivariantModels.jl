@@ -2,7 +2,8 @@ using Polynomials4ML
 using Polynomials4ML: AbstractPoly4MLBasis, SphericalCoords
 using StaticArrays: SVector, StaticArray
 
-import Polynomials4ML: _valtype, _out_size, _outsym
+import Polynomials4ML: _valtype, _out_size, _outsym, evaluate, evaluate!
+import ChainRulesCore: rrule, NoTangent
 
 export CategoricalBasis
 
@@ -145,6 +146,15 @@ end
 Polynomials4ML.natural_indices(basis::CategoricalBasis) = basis.categories.list
 
 Base.rand(basis::CategoricalBasis) = rand(basis.categories)
+
+## rrule
+function rrule(::typeof(evaluate), basis::CategoricalBasis, x)
+   A = evaluate(basis, x)
+   function pb(x)
+      return NoTangent(), NoTangent(), NoTangent()
+   end
+   return A, pb
+end
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
