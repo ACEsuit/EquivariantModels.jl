@@ -2,9 +2,11 @@ using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote
 using Polynomials4ML: LinearLayer, RYlmBasis, lux 
 using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA
 using JuLIP
+using Combinatorics: permutations
 
 rng = Random.MersenneTwister()
 
+include("staticprod.jl")
 ##
 
 # == configs and form model ==
@@ -28,7 +30,9 @@ for bb in ori_AAspec
    push!(new_AAspec, newbb)
 end
 
-luxchain, ps, st = equivariant_model(new_AAspec, L; categories=cats)
+cat_perm2 = collect(SVector{2}.(permutations(cats, 2)))
+
+luxchain, ps, st = equivariant_model(new_AAspec, 0; categories = cat_perm2, islong = false)
 
 ##
 
@@ -47,19 +51,27 @@ Z0S = get_Z0S(z0, Zs)
 # input of luxmodel
 X = (Rs, Z0S)
 
+
+# == lux chain eval and grad
 out, st = luxchain(X, ps, st)
+B = out
 
+model = append_layers(luxchain, get1 =  WrappedFunction(t -> real.(t)), dot = LinearLayer(length(B), 1), get2 = WrappedFunction(t -> t[1]))
 
+ps, st = Lux.setup(MersenneTwister(1234), model)
 
-# === 
-
+model(X, ps, st)
 
 # testing derivative (forces)
-g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1] 
+g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1][1]
+
+
 
 ##
 
-module Pot 
+module Pot
+   using StaticArrays: SVector
+
    import JuLIP, Zygote 
    import JuLIP: cutoff, Atoms 
    import ACEbase: evaluate!, evaluate_d!
@@ -68,6 +80,8 @@ module Pot
    import ChainRulesCore: rrule, ignore_derivatives
 
    import Optimisers: destructure
+
+   get_Z0S(zz0, ZZS) = [SVector{2}(zz0, zzs) for zzs in ZZS]
 
    struct LuxCalc <: JuLIP.SitePotential 
       luxmodel
@@ -85,12 +99,16 @@ module Pot
    cutoff(calc::LuxCalc) = calc.rcut
 
    function evaluate!(tmp, calc::LuxCalc, Rs, Zs, z0)
-      E, st = calc.luxmodel(Rs, calc.ps, calc.st)
+      Z0S = get_Z0S(z0, Zs)
+      X = (Rs, Z0S)
+      E, st = calc.luxmodel(X, calc.ps, calc.st)
       return E[1]
    end
 
    function evaluate_d!(dEs, tmpd, calc::LuxCalc, Rs, Zs, z0)
-      g = Zygote.gradient(X -> calc.luxmodel(X, calc.ps, calc.st)[1], Rs)[1]
+      Z0S = get_Z0S(z0, Zs)
+      X = (Rs, Z0S)
+      g = Zygote.gradient(X -> calc.luxmodel(X, calc.ps, calc.st)[1], X)[1][1]
       @assert length(g) == length(Rs) <= length(dEs)
       dEs[1:length(g)] .= g 
       return dEs 
@@ -107,7 +125,9 @@ module Pot
             Js, Rs, Zs = ignore_derivatives() do 
                JuLIP.Potentials.neigsz(nlist, at, i)
             end
-            Ei, st = calc.luxmodel(Rs, ps, st)
+            Z0S = get_Z0S(at.Z[1], Zs)
+            X = (Rs, Z0S)
+            Ei, st = calc.luxmodel(X, ps, st)
             Ei[1] 
          end, 
          1:length(at)
