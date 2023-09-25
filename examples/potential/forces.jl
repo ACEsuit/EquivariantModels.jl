@@ -201,3 +201,20 @@ E, F, V = Pot.lux_efv(at, calc, ps, st)
 @show F ≈ JuLIP.forces(calc, at)
 @show V ≈ JuLIP.virial(calc, at)
 
+## 
+
+# make up a baby loss function type thing.
+function loss(at, calc, p_vec)
+   ps = _rest(p_vec)
+   st = calc.st
+   E, F, V = Pot.lux_efv(at, calc, ps, st)
+   Nat = length(at)
+   return (E / Nat)^2 + 
+          sum( f -> sum(abs2, f), F ) / Nat + 
+          sum(abs2, V)
+end
+
+loss(at, calc, p_vec)
+
+
+ReverseDiff.gradient(p -> loss(at, calc, p), p_vec)
