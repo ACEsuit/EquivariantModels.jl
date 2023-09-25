@@ -1,7 +1,6 @@
 using Polynomials4ML, StaticArrays, EquivariantModels, Test, Rotations, LinearAlgebra
 using ACEbase.Testing: print_tf
 using EquivariantModels: getspec1idx, _invmap, dropnames, SList, val2i, xx2AA, degord2spec
-using Combinatorics: permutations
 
 include("wigner.jl")
 
