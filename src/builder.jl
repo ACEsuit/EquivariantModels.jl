@@ -147,7 +147,8 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
    bA = P4ML.PooledSparseProduct(spec1pidx)
    
-   Spec = [ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ]
+   Spec = sort.([ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ])
+   Spec = sort(Spec, by=length)
    bAA = P4ML.SparseSymmProd(Spec)
    
    # wrapping into lux layers
@@ -156,11 +157,9 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    l_bA = P4ML.lux(bA)
    l_bAA = P4ML.lux(bAA)
    
-   # @assert Polynomials4ML.reconstruct_spec(l_bAA.basis) == Spec
-   # The output of l_bAA may not be in the same order as Spec
-   # Here we generate a permutation mapping to ensure this
-   
    Spec_after = Polynomials4ML.reconstruct_spec(l_bAA.basis)
+   @assert Spec == Spec_after
+   
    dict = Dict([Spec_after[i] => i for i = 1 : length(Spec_after)])
    pos = [ dict[sort(Spec[i])] for i = 1:length(Spec) ]
    
@@ -170,14 +169,14 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    if isempty(categories)
       l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
       l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
-      luxchain = Chain(l_xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
+      luxchain = Chain(l_xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA)
    else
       l_xnxz = Lux.BranchLayer(normx = WrappedFunction(x -> _norm(x[1])), x = WrappedFunction(x -> x[1]), catlist = WrappedFunction(x -> x[2]))
       l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm, δs = l_δs)
-      luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
+      luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
    end
    
-   # luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA, AA_sort = WrappedFunction(x -> x[pos]))
+   # luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
       
    return luxchain, ps, st
