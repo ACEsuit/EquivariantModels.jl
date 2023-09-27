@@ -1,6 +1,9 @@
 using Polynomials4ML
-using Polynomials4ML: AbstractPoly4MLBasis
-using StaticArrays: SVector
+using Polynomials4ML: AbstractPoly4MLBasis, SphericalCoords
+using StaticArrays: SVector, StaticArray
+
+import Polynomials4ML: _valtype, _out_size, _outsym, evaluate, evaluate!
+import ChainRulesCore: rrule, NoTangent
 
 export CategoricalBasis
 
@@ -90,9 +93,18 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
       CategoricalBasis(SList(categories), meta)
 
       
-Polynomials4ML._outsym(x::Char) = :char
-Polynomials4ML._out_size(basis::CategoricalBasis, x) = (length(basis),)
-Polynomials4ML._valtype(basis::CategoricalBasis, x) = Bool
+#Polynomials4ML._outsym(x::Char) = :char
+_outsym(x::T) where T = :T
+
+const NSS = Union{Number, SphericalCoords, StaticArray}
+
+_out_size(basis::CategoricalBasis{LEN, T}, x::T) where {LEN, T} = (LEN,)
+_out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(x), LEN)
+_out_size(basis::CategoricalBasis{LEN, T}, x::NSS) where {LEN, T <: NSS} = (LEN, )
+
+_valtype(basis::CategoricalBasis{LEN, T}, x::Union{T,Vector{T}}) where {LEN, T} = Bool
+_valtype(basis::CategoricalBasis{LEN, T}, x::NSS) where {LEN, T <: NSS} = Bool
+_valtype(basis::CategoricalBasis{LEN, T}, x::Vector{<:NSS}) where {LEN, T <: NSS} = Bool
 
 # should the output be somethign like this?
 # struct Ei 
@@ -102,15 +114,31 @@ Polynomials4ML._valtype(basis::CategoricalBasis, x) = Bool
 
 # the next few functions need to be adapted to P4ML / Lux  
 
-function Polynomials4ML.evaluate(basis::CategoricalBasis, X)      
+function Polynomials4ML.evaluate(basis::CategoricalBasis{LEN, T}, X::T) where {LEN,T}   
    # some abstract vector 
-   A = Vector{Bool}(undef, length(basis))
+   A = Vector{Bool}(undef, LEN)
    return evaluate!(A, basis, X)
 end
 
-function Polynomials4ML.evaluate!(A, basis::CategoricalBasis, X)
+function Polynomials4ML.evaluate(basis::CategoricalBasis{LEN, T}, X::Vector{T}) where {LEN,T}
+   A = Matrix{Bool}(undef, length(X), LEN)
+   for i = 1:length(X)
+      A[i,:] = evaluate!(A[i,:], basis, X[i])
+   end
+   return A
+end
+
+function Polynomials4ML.evaluate!(A, basis::CategoricalBasis{LEN, T}, X::T) where {LEN,T}  
    fill!(A, false)
    A[val2i(basis.categories, X)] = true
+   return A
+end
+
+function Polynomials4ML.evaluate!(A, basis::CategoricalBasis{LEN, T}, X::Vector{T}) where {LEN,T}  
+   fill!(A, false)
+   for i = 1:length(X)
+      A[i,val2i(basis.categories, X[i])] = true
+   end
    return A
 end
 
@@ -118,6 +146,15 @@ end
 Polynomials4ML.natural_indices(basis::CategoricalBasis) = basis.categories.list
 
 Base.rand(basis::CategoricalBasis) = rand(basis.categories)
+
+## rrule
+function rrule(::typeof(evaluate), basis::CategoricalBasis, x)
+   A = evaluate(basis, x)
+   function pb(x)
+      return NoTangent(), NoTangent(), NoTangent()
+   end
+   return A, pb
+end
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
