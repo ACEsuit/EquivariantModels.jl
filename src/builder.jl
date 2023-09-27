@@ -192,6 +192,15 @@ L : Largest equivariance level
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
+
+struct ConstLinearLayer <: AbstractExplicitLayer
+   in_dim::Integer
+   out_dim::Integer
+   use_cache::Bool
+   # parameters ?
+   @reqfields()
+end
+
 function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true)
    # first filt out those unfeasible spec_nlm
    filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
