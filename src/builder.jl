@@ -132,6 +132,7 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
    Ylm = CYlmBasis(lmax)
    Rn = radial_basis(nmax)
+   # TODO: make it Rnl = radial_basis(nmax,lmax)
    
    if !isempty(categories)
       # Read categories from x - TODO: discuss which format we like it to be...
@@ -145,6 +146,7 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    end
    
    spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
+   # TODO: write getspec1idx for Rnl basis
    bA = P4ML.PooledSparseProduct(spec1pidx)
    
    Spec = sort.([ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ])
@@ -220,7 +222,7 @@ function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=
    end
    
    l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
-
+   # TODO: make it a Const_LinearLayer instead
    # C - A2Bmap
    luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
    # luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
