@@ -29,6 +29,7 @@ Return a vector of tuples of indices of spec1 w.r.t actual indices (i.e. 1, 2, 3
 function getspec1idx(spec1, bRnl, bYlm)
    spec1idx = Vector{Tuple{Int, Int}}(undef, length(spec1))
    spec_Rnl = natural_indices(bRnl); 
+   # TODO: the following line is to be changed to be l-dependent
    spec_Rnl = [(n = i, ) for i in spec_Rnl]
    inv_Rnl = _invmap(spec_Rnl)
    
