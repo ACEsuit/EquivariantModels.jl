@@ -1,9 +1,8 @@
-using EquivariantModels
-using StaticArrays
-using Test
+using EquivariantModels, StaticArrays, Test, Polynomials4ML, LinearAlgebra
 using ACEbase.Testing: print_tf
 using Rotations, WignerD, BlockDiagonals
-using LinearAlgebra
+using EquivariantModels: Radial_basis
+using Polynomials4ML:lux
 
 include("wigner.jl")
 
@@ -11,13 +10,14 @@ include("wigner.jl")
 totdeg = 6
 ν = 2
 Lmax = 2
+radial = Radial_basis(legendre_basis(totdeg) |> lux)
 
 for L = 0:Lmax
    local F, luxchain, ps, st, F2, luxchain2, ps2, st2
-   luxchain, ps, st = equivariant_model(totdeg, ν, L;islong = false)
+   luxchain, ps, st = equivariant_model(totdeg, ν, radial, L;islong = false)
    F(X) = luxchain(X, ps, st)[1]
    
-   luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec(;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],L;islong = false)
+   luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec(radial;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],radial,L;islong = false)
    F2(X) = luxchain(X, ps2, st2)[1]
    
    @info("Tesing L = $L O(3) equivariance")
@@ -54,9 +54,10 @@ end
 totdeg = 6
 ν = 2
 L = Lmax
-luxchain, ps, st = equivariant_model(totdeg,ν,L;islong = true)
+radial = Radial_basis(legendre_basis(totdeg) |> lux)
+luxchain, ps, st = equivariant_model(totdeg,ν,radial,L;islong = true)
 F(X) = luxchain(X, ps, st)[1]
-luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec(;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],L;islong = true)
+luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec(radial;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],radial,L;islong = true)
 F2(X) = luxchain(X, ps2, st2)[1]
 
 for ntest = 1:10
@@ -82,13 +83,14 @@ println()
 totdeg = 6
 ν = 2
 L = Lmax
-luxchain, ps, st = equivariant_model(totdeg,ν,L;islong = true);
+radial = Radial_basis(legendre_basis(totdeg) |> lux)
+luxchain, ps, st = equivariant_model(totdeg,ν,radial,L;islong = true);
 F(X) = luxchain(X, ps, st)[1]
 
 for l = 0:Lmax
    @info("Consistency check for L = $l")
    local FF, luxchain, ps, st
-   luxchain, ps, st = equivariant_model(totdeg,ν,l;islong = false)
+   luxchain, ps, st = equivariant_model(totdeg,ν,radial,l;islong = false)
    FF(X) = luxchain(X, ps, st)[1]
    
    for ntest = 1:20
@@ -116,7 +118,7 @@ for L = 0:Lmax
    while iseven(L) != iseven(sum(ll))
       ll = rand(0:2,4)
    end
-   luxchain, ps, st = equivariant_model(nn,ll,L;islong = false)
+   luxchain, ps, st = equivariant_model(nn,ll,radial,L;islong = false)
    F(X) = luxchain(X, ps, st)[1]
    
    @info("Tesing L = $L O(3) equivariance")
@@ -145,9 +147,10 @@ end
 totdeg = 6
 ν = 2
 L = Lmax
-luxchain, ps, st = equivariant_SYY_model(totdeg,ν,L);
+radial = Radial_basis(legendre_basis(totdeg) |> lux)
+luxchain, ps, st = equivariant_SYY_model(totdeg,ν,radial,L);
 F(X) = luxchain(X, ps, st)[1]
-luxchain2, ps2, st2 = equivariant_SYY_model(EquivariantModels.degord2spec(;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],L)
+luxchain2, ps2, st2 = equivariant_SYY_model(EquivariantModels.degord2spec(radial;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],radial,L)
 F2(X) = luxchain(X, ps2, st2)[1]
 
 @info("Tesing L = $L O(3) full equivariance")
@@ -182,7 +185,7 @@ while iseven(Lmax) != iseven(sum(ll))
    global ll = rand(0:2,4)
 end
 
-luxchain, ps, st = equivariant_SYY_model(nn, ll, L)
+luxchain, ps, st = equivariant_SYY_model(nn, ll, radial, L)
 F(X) = luxchain(X, ps, st)[1]
 
 @info("Tesing L = $L O(3) full equivariance")

@@ -1,13 +1,16 @@
 using Polynomials4ML, StaticArrays, EquivariantModels, Test, Rotations, LinearAlgebra
 using ACEbase.Testing: print_tf
 using EquivariantModels: getspec1idx, _invmap, dropnames, SList, val2i, xx2AA, degord2spec
+using Polynomials4ML: lux
 
 include("wigner.jl")
 
 L = 4
-
-Aspec, AAspec = degord2spec(; totaldegree = 4, 
-                                  order = 2, 
+totdeg = 4
+ord = 2
+radial = Radial_basis(legendre_basis(totdeg) |> lux)
+Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
+                                  order = ord, 
                                   Lmax = 0, )
 cats = [:O,:C]
 cats_ext = [(:O,:C),(:C,:O),(:O,:O),(:C,:C)] |> unique
@@ -22,7 +25,7 @@ _AAspec_tmp2 = [ [(AAspec[i][1]..., s = cats_ext[2]), (AAspec[i][2]..., s = cats
 append!(AAspec_tmp,_AAspec_tmp)
 append!(AAspec_tmp,_AAspec_tmp2)
 
-luxchain, ps, st = equivariant_model(AAspec_tmp, L; categories=cats_ext)
+luxchain, ps, st = equivariant_model(AAspec_tmp, radial, L; categories=cats_ext)
 F(X) = luxchain(X, ps, st)[1]
 species = [ rand(cats) for i = 1:10 ]
 Species = [ (species[1], species[i]) for i = 1:10 ]

@@ -120,19 +120,21 @@ end
 # TODO: symmetry group O(d)?
 """
 xx2AA(spec_nlm, d=3, categories=[]; radial_basis=legendre_basis)
-Construct a lux chain that maps a configuration to the corresponding the AA basis
+Construct a lux chain that maps a configuration to the corresponding AA basis
 spec_nlm: Specification of the AA bases
+radial : specified radial basis, with both basis and its specification
+===
+OptionalField: 
 d: Input dimension
 categories : A list of categories
-radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Configuration to AA bases - this is what all chains have in common
+
+function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3) # Configuration to AA bases - this is what all chains have in common
    # from spec_nlm to all possible spec1p
    spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
    Ylm = CYlmBasis(lmax)
-   Rn = radial_basis(nmax)
-   # TODO: make it Rnl = radial_basis(nmax,lmax)
+   # Rn = radial_basis(nmax)
    
    if !isempty(categories)
       # Read categories from x - TODO: discuss which format we like it to be...
@@ -145,8 +147,7 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
       l_δs = P4ML.lux(δs)
    end
    
-   spec1pidx = isempty(categories) ? getspec1idx(spec1p, Rn, Ylm) : getspec1idx(spec1p, Rn, Ylm, δs)
-   # TODO: write getspec1idx for Rnl basis
+   spec1pidx = isempty(categories) ? getspec1idx_new(spec1p, radial.Radialspec, Ylm) : getspec1idx_new(spec1p, radial.Radialspec, Ylm, δs)
    bA = P4ML.PooledSparseProduct(spec1pidx)
    
    Spec = sort.([ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ])
@@ -154,7 +155,7 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    bAA = P4ML.SparseSymmProd(Spec)
    
    # wrapping into lux layers
-   l_Rn = P4ML.lux(Rn)
+   l_Rnl = radial.Rnl
    l_Ylm = P4ML.lux(Ylm)
    l_bA = P4ML.lux(bA)
    l_bAA = P4ML.lux(bAA)
@@ -170,11 +171,11 @@ function xx2AA(spec_nlm; categories=[], d=3, radial_basis = legendre_basis) # Co
    
    if isempty(categories)
       l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
-      l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm)
+      l_embed = Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm)
       luxchain = Chain(l_xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA)
    else
       l_xnxz = Lux.BranchLayer(normx = WrappedFunction(x -> _norm(x[1])), x = WrappedFunction(x -> x[1]), catlist = WrappedFunction(x -> x[2]))
-      l_embed = Lux.Parallel(nothing; Rn = l_Rn, Ylm = l_Ylm, δs = l_δs)
+      l_embed = Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm, δs = l_δs)
       luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
    end
    
@@ -192,7 +193,7 @@ L : Largest equivariance level
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true)
+function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true)
    # first filt out those unfeasible spec_nlm
    filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
@@ -200,7 +201,7 @@ function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm,filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, d = d)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
 
    if islong
@@ -233,13 +234,13 @@ function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=
 end
 
 # more constructors equivariant_model
-equivariant_model(totdeg::Int64, ν::Int64, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true) = 
-     equivariant_model(degord2spec(;totaldegree = totdeg, order = ν, Lmax=L, radial_basis = radial_basis, islong = islong)[2], L; categories, d, radial_basis, group, islong)
+equivariant_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true) = 
+     equivariant_model(degord2spec(radial; totaldegree = totdeg, order = ν, Lmax=L, islong = islong)[2], radial, L; categories, d, group, islong)
 
 # With the _close function, the input could simply be an nnlllist (nlist,llist)
-equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64; categories=[], d=3, radial_basis = legendre_basis, group = "O3", islong = true) = begin
+equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], d=3, group = "O3", islong = true) = begin
    filter = islong ? RPE_filter_long(L) : RPE_filter(L)
-   equivariant_model(_close(nn, ll; filter = filter), L; categories, d, radial_basis, group, islong)
+   equivariant_model(_close(nn, ll; filter = filter), radial, L; categories, d, group, islong)
 end
 
 # ===== Codes that we might remove later =====
@@ -251,14 +252,14 @@ end
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
 
-function equivariant_SYY_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3")
+function equivariant_SYY_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3")
    filter_init = RPE_filter_long(L)
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm, filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm; categories = categories, d = d, radial_basis = radial_basis)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, d = d)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
    
    cgen = Rot3DCoeffs_long(L) # TODO: this should be made group related
@@ -274,11 +275,11 @@ function equivariant_SYY_model(spec_nlm, L::Int64; categories=[], d=3, radial_ba
    return luxchain, ps, st
 end
 
-equivariant_SYY_model(totdeg::Int64, ν::Int64, L::Int64; categories=[], d=3, radial_basis = legendre_basis,group = "O3") = 
-   equivariant_SYY_model(degord2spec(;totaldegree = totdeg, order = ν, Lmax = L, radial_basis = radial_basis, islong=true)[2], L; categories, d, radial_basis, group)
+equivariant_SYY_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], d=3,group = "O3") = 
+   equivariant_SYY_model(degord2spec(radial; totaldegree = totdeg, order = ν, Lmax = L, islong=true)[2], radial, L; categories, d, group)
 
-equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3") = 
-   equivariant_SYY_model(_close(nn, ll; filter = RPE_filter_long(L)), L; categories, d, radial_basis, group)
+equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3") = 
+   equivariant_SYY_model(_close(nn, ll; filter = RPE_filter_long(L)), radial, L; categories, d, group)
    
 ## TODO: The following should eventually go into ACEhamiltonians.jl rather than this package
 
@@ -312,7 +313,7 @@ function equivariant_luxchain_constructor(totdeg, ν, L; wL = 1, Rn = legendre_b
 
    Ylm = CYlmBasis(totdeg)
    
-   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
+   spec1p = make_nlms_spec(Radial_basis(Polynomials4ML.lux(Rn)), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
    spec1pidx = getspec1idx(spec1p, Rn, Ylm)
    
@@ -370,7 +371,7 @@ end
 function equivariant_luxchain_constructor_new(totdeg, ν, L; wL = 1, Rn = legendre_basis(totdeg))
    Ylm = CYlmBasis(totdeg)
 
-   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totdeg, admissible = (br, by) -> br + wL * by.l <= totdeg)
+   spec1p = make_nlms_spec(Radial_basis(Polynomials4ML.lux(Rn)), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
    spec1pidx = getspec1idx(spec1p, Rn, Ylm)
 
