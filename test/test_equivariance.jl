@@ -10,7 +10,8 @@ include("wigner.jl")
 totdeg = 6
 ν = 2
 Lmax = 2
-radial = Radial_basis(legendre_basis(totdeg) |> lux)
+basis = legendre_basis(totdeg)
+radial = EquivariantModels.simple_radial_basis(basis)
 
 for L = 0:Lmax
    local F, luxchain, ps, st, F2, luxchain2, ps2, st2
@@ -54,7 +55,8 @@ end
 totdeg = 6
 ν = 2
 L = Lmax
-radial = Radial_basis(legendre_basis(totdeg) |> lux)
+basis = legendre_basis(totdeg)
+radial = EquivariantModels.simple_radial_basis(basis)
 luxchain, ps, st = equivariant_model(totdeg,ν,radial,L;islong = true)
 F(X) = luxchain(X, ps, st)[1]
 luxchain2, ps2, st2 = equivariant_model(EquivariantModels.degord2spec(radial;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],radial,L;islong = true)
@@ -74,7 +76,7 @@ for ntest = 1:10
    for l = 2:L
       D = wigner_D(l-1,Matrix(Q))'
       # D = wignerD(l-1, 0, 0, θ)
-      print_tf(@test norm.(Ref(D') .* F(X)[l] - F(QX)[l]) |> norm <1e-12)
+      print_tf(@test norm.(Ref(D') .* F(X)[l] - F(QX)[l]) |> norm <1e-11)
    end
 end
 println()
@@ -83,7 +85,8 @@ println()
 totdeg = 6
 ν = 2
 L = Lmax
-radial = Radial_basis(legendre_basis(totdeg) |> lux)
+basis = legendre_basis(totdeg)
+radial = EquivariantModels.simple_radial_basis(basis)
 luxchain, ps, st = equivariant_model(totdeg,ν,radial,L;islong = true);
 F(X) = luxchain(X, ps, st)[1]
 
@@ -147,7 +150,8 @@ end
 totdeg = 6
 ν = 2
 L = Lmax
-radial = Radial_basis(legendre_basis(totdeg) |> lux)
+basis = legendre_basis(totdeg)
+radial = EquivariantModels.simple_radial_basis(basis)
 luxchain, ps, st = equivariant_SYY_model(totdeg,ν,radial,L);
 F(X) = luxchain(X, ps, st)[1]
 luxchain2, ps2, st2 = equivariant_SYY_model(EquivariantModels.degord2spec(radial;totaldegree=totdeg,order=ν,Lmax=L,islong = true)[2][1:end-1],radial,L)

@@ -1,6 +1,6 @@
 using Polynomials4ML, StaticArrays, EquivariantModels, Test, Rotations, LinearAlgebra
 using ACEbase.Testing: print_tf
-using EquivariantModels: getspec1idx, _invmap, dropnames, SList, val2i, xx2AA, degord2spec
+using EquivariantModels: getspec1idx, _invmap, dropnames, SList, val2i, xx2AA, degord2spec, simple_radial_basis
 using Polynomials4ML: lux
 
 include("wigner.jl")
@@ -8,7 +8,8 @@ include("wigner.jl")
 L = 4
 totdeg = 4
 ord = 2
-radial = Radial_basis(legendre_basis(totdeg) |> lux)
+radial = simple_radial_basis(legendre_basis(totdeg))
+# radial = Radial_basis(legendre_basis(totdeg) |> lux)
 Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
                                   order = ord, 
                                   Lmax = 0, )
@@ -34,13 +35,13 @@ Species = [ (species[1], species[i]) for i = 1:10 ]
 for ntest = 1:10
    local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   XX = (X, Species)
+   XX = [X, Species]
    θ1 = rand() * 2pi
    θ2 = rand() * 2pi
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
    QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QXX = (QX, Species)
+   QXX = [QX, Species]
    
    print_tf(@test F(XX)[1] ≈ F(QXX)[1])
 

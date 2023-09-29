@@ -170,13 +170,15 @@ function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3) # Configurati
    _norm(x) = norm.(x)
    
    if isempty(categories)
-      l_xnx = Lux.Parallel(nothing; normx = WrappedFunction(_norm), x = WrappedFunction(identity))
       l_embed = Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm)
-      luxchain = Chain(l_xnx = l_xnx, embed = l_embed, A = l_bA , AA = l_bAA)
-   else
-      l_xnxz = Lux.BranchLayer(normx = WrappedFunction(x -> _norm(x[1])), x = WrappedFunction(x -> x[1]), catlist = WrappedFunction(x -> x[2]))
+      luxchain = Chain(embed = l_embed, A = l_bA , AA = l_bAA)
+   else      
+      l_Rnl = append_layer(Chain(get_pos = get_i(1), ), l_Rnl; l_name = :radial_poly)
+      l_Ylm = append_layer(Chain(get_pos = get_i(1), ), l_Ylm; l_name = :angle_poly)
+      l_δs = append_layer(Chain(get_cat = get_i(2), ), l_δs; l_name = :categorical)
+      
       l_embed = Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm, δs = l_δs)
-      luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
+      luxchain = Chain(embed = l_embed, A = l_bA , AA = l_bAA) # Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
    end
    
    # luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)

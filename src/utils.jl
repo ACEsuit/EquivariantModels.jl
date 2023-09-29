@@ -1,4 +1,4 @@
-using Polynomials4ML: natural_indices
+using Polynomials4ML: natural_indices, ScalarPoly4MLBasis, lux
 using LuxCore: AbstractExplicitLayer
 
 struct Radial_basis
@@ -15,6 +15,29 @@ Radial_basis(Rnl::AbstractExplicitLayer) =
          catch 
             error("The specification of this Radial_basis should be given explicitly!")
          end
+
+# more parameters should be added to this function - it is in its current form just for testing
+function simple_radial_basis(basis::ScalarPoly4MLBasis; spec = nothing)
+   if isnothing(spec)
+      try 
+         spec = natural_indices(basis)
+      catch 
+         error("The specification of this Radial_basis should be given explicitly!")
+      end
+   end
+   
+   function f_cut(r)
+      return r
+   end
+   
+   function f_tran(r)
+      return r
+   end
+   f(r) = f_cut(r) * f_tran(r)
+   
+   return Radial_basis(Chain(trans = WrappedFunction(xx -> [f(norm(x)) for x in xx]), 
+               poly = lux(basis), ), spec)
+end
 
 """
 _invmap(a::AbstractVector)
@@ -309,3 +332,5 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    Aspec = specnlm2spec1p(AAspec)[1]
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
+
+get_i(i) = WrappedFunction(t -> t[i])
