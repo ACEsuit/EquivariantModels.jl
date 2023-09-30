@@ -100,7 +100,7 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
                if !isnothing(idxAA)
                   push!(Irow, idxB)
                   push!(Jcol, idxAA)
-                  if norm(U[irow, icol])<1e-12
+                  if norm(U[irow, icol] - real.(U[irow, icol]))<1e-12
                      push!(vals, real.(U[irow, icol]))
                   else
                      push!(vals, U[irow, icol])
