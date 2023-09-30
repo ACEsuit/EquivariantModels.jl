@@ -20,13 +20,10 @@ B = l_basis(X, ps_basis, st_basis)[1]
 
 # now build another model with a better transform 
 len_BB = length(B) 
-# embed = Parallel(nothing; 
-#        Rn = Chain(trans = WrappedFunction(xx -> [1/(1+norm(x)) for x in xx]), 
-#                    poly = l_basis.layers.embed.layers.Rn, ), 
-#       Ylm = Chain(Ylm = lux(RYlmBasis(L)),  ) )
 
-model = append_layer(l_basis, LinearLayer(len_BB, 1); l_name=:dot)
-model = append_layer(model, WrappedFunction(t -> real(t[1])); l_name=:get1)
+model = append_layer(l_basis, WrappedFunction(t -> real(t)); l_name=:real)
+model = append_layer(model, LinearLayer(len_BB, 1); l_name=:dot)
+model = append_layer(model, WrappedFunction(t -> t[1]); l_name=:get1)
          
 ps, st = Lux.setup(rng, model)
 out, st = model(X, ps, st)
@@ -213,3 +210,4 @@ loss(at, calc, p_vec)
 
 
 # ReverseDiff.gradient(p -> loss(at, calc, p), p_vec)
+
