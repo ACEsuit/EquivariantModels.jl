@@ -9,7 +9,11 @@ rcut = 5.5
 maxL = 0
 totdeg = 6
 ord = 3
-radial = simple_radial_basis(legendre_basis(totdeg))
+
+fcut(rcut::Float64,pin::Int=2,pout::Int=2) = r -> (r < rcut ? abs( (r/rcut)^pin - 1)^pout : 0)
+ftrans(r0::Float64=.0,p::Int=2) = r -> ( (1+r0)/(1+r) )^p
+radial = simple_radial_basis(legendre_basis(totdeg),fcut(rcut),ftrans())
+
 Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
                               order = ord, 
                               Lmax = maxL, )
@@ -18,7 +22,7 @@ l_basis, ps_basis, st_basis = equivariant_model(AAspec, radial, maxL; islong = f
 X = [ @SVector(randn(3)) for i in 1:10 ]
 B = l_basis(X, ps_basis, st_basis)[1]
 
-# now build another model with a better transform 
+# now extend the above BB basis to a model
 len_BB = length(B) 
 
 model = append_layer(l_basis, WrappedFunction(t -> real(t)); l_name=:real)
@@ -150,7 +154,7 @@ end
 
 using JuLIP
 JuLIP.usethreads!(false) 
-ps.dot.W[:] .= 1e-12 * randn(length(ps.dot.W)) 
+ps.dot.W[:] .= 1e-2 * randn(length(ps.dot.W)) 
 
 at = rattle!(bulk(:W, cubic=true, pbc=true) * 2, 0.1)
 calc = Pot.LuxCalc(model, ps, st, rcut)
@@ -210,4 +214,3 @@ loss(at, calc, p_vec)
 
 
 # ReverseDiff.gradient(p -> loss(at, calc, p), p_vec)
-

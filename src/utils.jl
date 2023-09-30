@@ -16,8 +16,8 @@ Radial_basis(Rnl::AbstractExplicitLayer) =
             error("The specification of this Radial_basis should be given explicitly!")
          end
 
-# more parameters should be added to this function - it is in its current form just for testing
-function simple_radial_basis(basis::ScalarPoly4MLBasis; spec = nothing)
+# it is in its current form just for the purpose of testing
+function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=identity,f_trans::Function=identity; spec = nothing)
    if isnothing(spec)
       try 
          spec = natural_indices(basis)
@@ -26,14 +26,7 @@ function simple_radial_basis(basis::ScalarPoly4MLBasis; spec = nothing)
       end
    end
    
-   function f_cut(r)
-      return r
-   end
-   
-   function f_tran(r)
-      return r
-   end
-   f(r) = f_cut(r) * f_tran(r)
+   f(r) = f_cut(r) * f_trans(r)
    
    return Radial_basis(Chain(trans = WrappedFunction(xx -> [f(norm(x)) for x in xx]), 
                poly = lux(basis), ), spec)
@@ -61,59 +54,10 @@ function dropnames(namedtuple::NamedTuple, names::Tuple{Vararg{Symbol}})
 end
 
 """
-getspec1idx(spec1, bRnl, bYlm)
+getspec1idx(spec1, Radial_basis, bYlm)
 Return a vector of tuples of indices of spec1 w.r.t actual indices (i.e. 1, 2, 3, ...) of bRnl and bYlm
 """
-function getspec1idx(spec1, bRnl, bYlm)
-   spec1idx = Vector{Tuple{Int, Int}}(undef, length(spec1))
-   spec_Rnl = natural_indices(bRnl); 
-   # TODO: the following line is to be changed to be l-dependent
-   if typeof(spec_Rnl[1]) <: Int 
-      spec_Rnl = [(n = i, ) for i in spec_Rnl]
-      is_l = false
-   elseif !(typeof(spec_Rnl[1]) <: NamedTuple)
-      is_l = true
-      @error("Unexpected type of Rnl - Probably means that it is not defined yet")
-   end
-   
-   inv_Rnl = _invmap(spec_Rnl)
-   
-   spec_Ylm = natural_indices(bYlm); inv_Ylm = _invmap(spec_Ylm)
-
-   spec1idx = Vector{Tuple{Int, Int}}(undef, length(spec1))
-   
-   if is_l
-      for (i, b) in enumerate(spec1)
-         spec1idx[i] = (inv_Rnl[dropnames(b, (:m, ))], inv_Ylm[(l=b.l, m=b.m)])
-      end
-   else
-      for (i, b) in enumerate(spec1)
-         spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l))], inv_Ylm[(l=b.l, m=b.m)])
-      end
-   end
-   
-   return spec1idx
-end
-
-function getspec1idx(spec1, bRnl, bYlm, bδs)
-   spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
-   
-   spec_Rnl = natural_indices(bRnl)
-   spec_Rnl = [(n = i, ) for i in spec_Rnl]
-   inv_Rnl = _invmap(spec_Rnl)
-
-   spec_Ylm = natural_indices(bYlm); inv_Ylm = _invmap(spec_Ylm)
-   
-   slist = bδs.categories
-
-   spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
-   for (i, b) in enumerate(spec1)
-      spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l, :s))], inv_Ylm[(l=b.l, m=b.m)], val2i(slist, b.s))
-   end
-   return spec1idx
-end
-
-function getspec1idx_new(spec1, spec_Rnl, bYlm)
+function getspec1idx(spec1, spec_Rnl, bYlm)
    spec1idx = Vector{Tuple{Int, Int}}(undef, length(spec1))
    # try is_l = isinteger(spec_Rnl[1].l); catch; is_l = false; end
    inv_Rnl = _invmap(spec_Rnl)
@@ -135,7 +79,7 @@ function getspec1idx_new(spec1, spec_Rnl, bYlm)
    return spec1idx
 end
 
-function getspec1idx_new(spec1, spec_Rnl, bYlm, bδs)
+function getspec1idx(spec1, spec_Rnl, bYlm, bδs)
    spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
    # try is_l = isinteger(spec_Rnl[1].l); catch; is_l = false; end
    inv_Rnl = _invmap(spec_Rnl)
@@ -302,20 +246,24 @@ end
 degord2spec(;totaldegree, order, Lmax, radial_basis = legendre_basis, wL = 1, islong = true)
 Return a list of AA specifications and A specifications
 """
-function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories = [], wL = 1, islong = true)
+function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories = [], wL = 1, islong = true, rSH = false)
    # Rn = radial.radial_basis(totaldegree)
    Ylm = CYlmBasis(totaldegree)
 
    spec1p = make_nlms_spec(radial, Ylm; totaldegree = totaldegree, admissible = (br, by) -> br.n + wL * by.l <= totaldegree)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx_new(spec1p, radial.Radialspec, Ylm)
+   spec1pidx = getspec1idx(spec1p, radial.Radialspec, Ylm)
 
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
    default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totaldegree
 
    # to construct SS, SD blocks
-   filter_ = islong ? RPE_filter_long(Lmax) : RPE_filter(Lmax)
+   if rSH
+      filter_ = RPE_filter_real(Lmax)
+   else
+      filter_ = islong ? RPE_filter_long(Lmax) : RPE_filter(Lmax)
+   end
 
    specAA = gensparse(; NU = order, tup2b = tup2b, filter = filter_, 
                         admissible = default_admissible,

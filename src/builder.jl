@@ -1,6 +1,6 @@
 using LinearAlgebra
 using SparseArrays: SparseMatrixCSC, sparse
-using RepLieGroups.O3: Rot3DCoeffs, Rot3DCoeffs_real, Rot3DCoeffs_long, re_basis, SYYVector
+using RepLieGroups.O3: Rot3DCoeffs, Rot3DCoeffs_real, Rot3DCoeffs_long, re_basis, SYYVector, mm_filter
 using Polynomials4ML: legendre_basis, RYlmBasis, natural_indices, degree
 using Polynomials4ML.Utils: gensparse
 using Lux: WrappedFunction
@@ -15,6 +15,8 @@ P4ML = Polynomials4ML
 
 RPE_filter(L) = bb -> (length(bb) == 0) || ((abs(sum(b.m for b in bb)) <= L) && iseven(sum(b.l for b in bb)+L))
 RPE_filter_long(L) = bb -> (length(bb) == 0) || (abs(sum(b.m for b in bb)) <= L)
+
+RPE_filter_real(L) = bb -> (length(bb) == 0) || mm_filter([b.m for b in bb],L) && iseven(sum(b.l for b in bb)+L)
 
 """
 _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T},Rot3DCoeffs_real{L,T},Rot3DCoeffs_long{L,T}},
@@ -36,16 +38,12 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
    for i = 1:length(spec)
       # get the specification of the ith basis function, which is a tuple/vec of NamedTuples
       pib = spec[i]
-      # skip it unless all m are zero, because we want to consider each
-      # (nn, ll) block only once.
-      # if !all(b.m == 0 for b in pib)
-      #    continue
-      # end
-      # But we can not do this anymore for L≥1, so I add an nnllset
       
       # get the rotation-coefficients for this basis group
       # the bs are the basis functions corresponding to the columns
       
+      # The nnlllist is created because we want to consider each
+      # (nn, ll) block only once.
       nn = SVector([onep.n for onep in pib]...)
       ll = SVector([onep.l for onep in pib]...) # get a SVector of ll index
       if haskey(pib[1],:s)
@@ -102,7 +100,12 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
                if !isnothing(idxAA)
                   push!(Irow, idxB)
                   push!(Jcol, idxAA)
-                  push!(vals, U[irow, icol])
+                  if norm(U[irow, icol])<1e-12
+                     push!(vals, real.(U[irow, icol]))
+                  else
+                     push!(vals, U[irow, icol])
+                  end
+                  # push!(vals, U[irow, icol])
                end
             end
          end
@@ -119,7 +122,7 @@ end
 
 # TODO: symmetry group O(d)?
 """
-xx2AA(spec_nlm, d=3, categories=[]; radial_basis=legendre_basis)
+xx2AA(spec_nlm, radial; d=3, categories=[])
 Construct a lux chain that maps a configuration to the corresponding AA basis
 spec_nlm: Specification of the AA bases
 radial : specified radial basis, with both basis and its specification
@@ -129,25 +132,20 @@ d: Input dimension
 categories : A list of categories
 """
 
-function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3) # Configuration to AA bases - this is what all chains have in common
+function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3, rSH = false) # Configuration to AA bases - this is what all chains have in common
    # from spec_nlm to all possible spec1p
    spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
-   Ylm = CYlmBasis(lmax)
+   Ylm = rSH ? RYlmBasis(lmax) : CYlmBasis(lmax)
    # Rn = radial_basis(nmax)
    
    if !isempty(categories)
-      # Read categories from x - TODO: discuss which format we like it to be...
-      # For now we just give get_cat(x) a random value
-      #get_cat(x) = length(categories) > 1 ? (iseven(floor(norm(x))) ? categories[1] : categories[2]) : categories[1]
-      #_get_cat(x) = get_cat.(x)
-      
       # Define categorical bases
       δs = CategoricalBasis(categories)
       l_δs = P4ML.lux(δs)
    end
    
-   spec1pidx = isempty(categories) ? getspec1idx_new(spec1p, radial.Radialspec, Ylm) : getspec1idx_new(spec1p, radial.Radialspec, Ylm, δs)
+   spec1pidx = isempty(categories) ? getspec1idx(spec1p, radial.Radialspec, Ylm) : getspec1idx(spec1p, radial.Radialspec, Ylm, δs)
    bA = P4ML.PooledSparseProduct(spec1pidx)
    
    Spec = sort.([ [dict_spec1p[spec_nlm[k][j]] for j = 1:length(spec_nlm[k])] for k = 1:length(spec_nlm) ])
@@ -195,15 +193,19 @@ L : Largest equivariance level
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true)
+function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true, rSH = false)
+   if rSH && L > 0
+      error("rSH is only implemented (for now) for L = 0")
+   end
+
    # first filt out those unfeasible spec_nlm
-   filter_init = islong ? RPE_filter_long(L) : RPE_filter(L)
+   filter_init = rSH ? RPE_filter_real(L) : (islong ? RPE_filter_long(L) : RPE_filter(L))
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm,filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, d = d)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, d = d, rSH = rSH)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
 
    if islong
@@ -212,15 +214,15 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
       pos = Vector{Any}(undef, L+1)
    
       for l = 0:L
-         filter = RPE_filter(l)
-         cgen = Rot3DCoeffs(l) # TODO: this should be made group related
+         filter = rSH ? RPE_filter_real(L) : RPE_filter(l)
+         cgen = rSH ? Rot3DCoeffs_real(l) : Rot3DCoeffs(l) # TODO: this should be made group related
 
          tmp = spec_nlm[findall(x -> filter(x) == 1, spec_nlm)]
          C[l+1] = _rpi_A2B_matrix(cgen, tmp)
          pos[l+1] = findall(x -> filter(x) == 1, spec_nlm) # [ dict[tmp[j]] for j = 1:length(tmp)]
       end
    else
-      cgen = Rot3DCoeffs(L) # TODO: this should be made group related
+      cgen = rSH ? Rot3DCoeffs_real(L) : Rot3DCoeffs(L) # TODO: this should be made group related
       C = _rpi_A2B_matrix(cgen, spec_nlm)
    end
    
@@ -236,13 +238,13 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
 end
 
 # more constructors equivariant_model
-equivariant_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true) = 
-     equivariant_model(degord2spec(radial; totaldegree = totdeg, order = ν, Lmax=L, islong = islong)[2], radial, L; categories, d, group, islong)
+equivariant_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true, rSH = false) = 
+     equivariant_model(degord2spec(radial; totaldegree = totdeg, order = ν, Lmax=L, islong = islong)[2], radial, L; categories, d, group, islong, rSH)
 
 # With the _close function, the input could simply be an nnlllist (nlist,llist)
-equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], d=3, group = "O3", islong = true) = begin
+equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], d=3, group = "O3", islong = true, rSH = false) = begin
    filter = islong ? RPE_filter_long(L) : RPE_filter(L)
-   equivariant_model(_close(nn, ll; filter = filter), radial, L; categories, d, group, islong)
+   equivariant_model(_close(nn, ll; filter = filter), radial, L; categories, d, group, islong, rSH)
 end
 
 # ===== Codes that we might remove later =====
@@ -317,7 +319,7 @@ function equivariant_luxchain_constructor(totdeg, ν, L; wL = 1, Rn = legendre_b
    
    spec1p = make_nlms_spec(Radial_basis(Polynomials4ML.lux(Rn)), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+   spec1pidx = getspec1idx(spec1p, Radial_basis(Polynomials4ML.lux(Rn)).Radialspec, Ylm)
    
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
@@ -375,7 +377,7 @@ function equivariant_luxchain_constructor_new(totdeg, ν, L; wL = 1, Rn = legend
 
    spec1p = make_nlms_spec(Radial_basis(Polynomials4ML.lux(Rn)), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+   spec1pidx = getspec1idx(spec1p, Radial_basis(Polynomials4ML.lux(Rn)).Radialspec, Ylm)
 
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
