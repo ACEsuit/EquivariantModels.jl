@@ -1,38 +1,34 @@
-using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote 
+using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote, Polynomials4ML
 using Polynomials4ML: LinearLayer, RYlmBasis, lux 
-using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA
+using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA, simple_radial_basis
 rng = Random.MersenneTwister()
 
 ##
 
 rcut = 5.5 
 maxL = 0
-Aspec, AAspec = degord2spec(; totaldegree = 6, 
-                              order = 3, 
+totdeg = 6
+ord = 3
+
+fcut(rcut::Float64,pin::Int=2,pout::Int=2) = r -> (r < rcut ? abs( (r/rcut)^pin - 1)^pout : 0)
+ftrans(r0::Float64=.0,p::Int=2) = r -> ( (1+r0)/(1+r) )^p
+radial = simple_radial_basis(legendre_basis(totdeg),fcut(rcut),ftrans())
+
+Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
+                              order = ord, 
                               Lmax = maxL, )
 
-l_basis, ps_basis, st_basis = equivariant_model(AAspec, maxL)
+l_basis, ps_basis, st_basis = equivariant_model(AAspec, radial, maxL; islong = false)
 X = [ @SVector(randn(3)) for i in 1:10 ]
-B = l_basis(X, ps_basis, st_basis)[1][1]
+B = l_basis(X, ps_basis, st_basis)[1]
 
-# now build another model with a better transform 
-L = maximum(b.l for b in Aspec) 
+# now extend the above BB basis to a model
 len_BB = length(B) 
-get1 = WrappedFunction(t -> t[1])
-embed = Parallel(nothing; 
-       Rn = Chain(trans = WrappedFunction(xx -> [1/(1+norm(x)) for x in xx]), 
-                   poly = l_basis.layers.embed.layers.Rn, ), 
-      Ylm = Chain(Ylm = lux(RYlmBasis(L)),  ) )
 
-model = Chain( 
-         embed = embed, 
-         A = l_basis.layers.A, 
-         AA = l_basis.layers.AA, 
-         # AA_sort = l_basis.layers.AA_sort, 
-         BB = l_basis.layers.BB, 
-         get1 = WrappedFunction(t -> t[1]), 
-         dot = LinearLayer(len_BB, 1), 
-         get2 = WrappedFunction(t -> t[1]), )
+model = append_layer(l_basis, WrappedFunction(t -> real(t)); l_name=:real)
+model = append_layer(model, LinearLayer(len_BB, 1); l_name=:dot)
+model = append_layer(model, WrappedFunction(t -> t[1]); l_name=:get1)
+         
 ps, st = Lux.setup(rng, model)
 out, st = model(X, ps, st)
 
@@ -158,7 +154,7 @@ end
 
 using JuLIP
 JuLIP.usethreads!(false) 
-ps.dot.W[:] .= 0.01 * randn(length(ps.dot.W)) 
+ps.dot.W[:] .= 1e-2 * randn(length(ps.dot.W)) 
 
 at = rattle!(bulk(:W, cubic=true, pbc=true) * 2, 0.1)
 calc = Pot.LuxCalc(model, ps, st, rcut)
@@ -217,4 +213,4 @@ end
 loss(at, calc, p_vec)
 
 
-ReverseDiff.gradient(p -> loss(at, calc, p), p_vec)
+# ReverseDiff.gradient(p -> loss(at, calc, p), p_vec)
