@@ -17,7 +17,7 @@ function grad_test2(f, df, X::AbstractVector; verbose = true)
    verbose && @printf("---------|----------- \n")
    verbose && @printf("    h    | error \n")
    verbose && @printf("---------|----------- \n")
-   for h in 0.1.^(-3:9)
+   for h in 0.1.^(0:12)
       gh = [ (f(X + h * EE[:, i]) - F) / h for i = 1:nX ]
       verbose && @printf(" %.1e | %.2e \n", h, norm(gh - ∇F, Inf))
    end
@@ -97,6 +97,7 @@ dF(Rs) = Zygote.gradient(rs -> model([rs, Z0S], ps, st)[1], Rs)[1]
 ##
 @info("test derivative w.r.t X")
 print_tf(@test fdtest(F, dF, Rs; verbose=true))
+println()
 
 
 @info("test derivative w.r.t parameter")
