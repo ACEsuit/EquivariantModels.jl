@@ -317,9 +317,9 @@ function equivariant_luxchain_constructor(totdeg, ν, L; wL = 1, Rn = legendre_b
 
    Ylm = CYlmBasis(totdeg)
    
-   spec1p = make_nlms_spec(Radial_basis(Polynomials4ML.lux(Rn)), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
+   spec1p = make_nlms_spec(simple_radial_basis(Rn), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx(spec1p, Radial_basis(Polynomials4ML.lux(Rn)).Radialspec, Ylm)
+   spec1pidx = getspec1idx(spec1p, simple_radial_basis(Rn).Radialspec, Ylm)
    
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
@@ -375,9 +375,9 @@ end
 function equivariant_luxchain_constructor_new(totdeg, ν, L; wL = 1, Rn = legendre_basis(totdeg))
    Ylm = CYlmBasis(totdeg)
 
-   spec1p = make_nlms_spec(Radial_basis(Polynomials4ML.lux(Rn)), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
+   spec1p = make_nlms_spec(simple_radial_basis(Rn), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx(spec1p, Radial_basis(Polynomials4ML.lux(Rn)).Radialspec, Ylm)
+   spec1pidx = getspec1idx(spec1p, simple_radial_basis(Rn).Radialspec, Ylm)
 
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]

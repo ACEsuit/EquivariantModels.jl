@@ -1,19 +1,23 @@
 using Polynomials4ML: natural_indices, ScalarPoly4MLBasis, lux
-using LuxCore: AbstractExplicitLayer
+using LuxCore: AbstractExplicitContainerLayer
 
 struct Radial_basis
-   Rnl::AbstractExplicitLayer
+   Rnl::AbstractExplicitContainerLayer
    Radialspec::Vector{NamedTuple}
 end
 
-Radial_basis(Rnl::AbstractExplicitLayer, spec_Rnl::Union{Vector{Int}, UnitRange{Int64}}) = 
+Radial_basis(Rnl::AbstractExplicitContainerLayer, spec_Rnl::Union{Vector{Int}, UnitRange{Int64}}) = 
          Radial_basis(Rnl, [(n = i, ) for i in spec_Rnl])
 
-Radial_basis(Rnl::AbstractExplicitLayer) = 
+Radial_basis(Rnl::AbstractExplicitContainerLayer) = 
          try 
             Radial_basis(Rnl,natural_indices(Rnl.basis)) 
          catch 
-            error("The specification of this Radial_basis should be given explicitly!")
+            try 
+               Radial_basis(Rnl,natural_indices(Rnl.layers.poly.basis)) 
+            catch
+               error("The specification of this Radial_basis should be given explicitly!")
+            end
          end
 
 # it is in its current form just for the purpose of testing

@@ -218,7 +218,7 @@ L = Lmax
 luxchain, ps, st = equivariant_luxchain_constructor(totdeg,ν,L)
 F(X) = luxchain(X, ps, st)[1]
 
-# A small comparison - long vector does give us some redundent basis...
+# A small comparison - long vector does give us some redundant basis...
 
 @info("Equivariance test")
 l1l2set = [(l1,l2) for l1 = 0:L for l2 = 0:L-l1]
