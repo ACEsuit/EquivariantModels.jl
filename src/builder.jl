@@ -201,7 +201,10 @@ struct ConstLinearLayer <: AbstractExplicitLayer
    @reqfields()
 end
 
-function equivariant_model(spec_nlm, L::Int64; categories=[], d=3, radial_basis=legendre_basis, group="O3", islong=true)
+function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true, rSH = false)
+   if rSH && L > 0
+      error("rSH is only implemented (for now) for L = 0")
+   end
 
    # first filt out those unfeasible spec_nlm
    filter_init = rSH ? RPE_filter_real(L) : (islong ? RPE_filter_long(L) : RPE_filter(L))
