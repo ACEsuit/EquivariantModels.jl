@@ -7,7 +7,7 @@ rng = Random.MersenneTwister()
 using ASE, JuLIP
 function gen_dat()
    eam = JuLIP.Potentials.EAM("w_eam4.fs")
-   at = rattle!(bulk(:W, cubic=true) * rand(2:3), 0.1)
+   at = rattle!(bulk(:W, cubic=true) * 3, 0.1)
    set_data!(at, "energy", energy(eam, at))
    return at
 end
@@ -167,8 +167,28 @@ obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> E_loss(train, calc, p), 
 
 res = optimize(obj_f, obj_g!, p0,
               Optim.LBFGS(),
-              Optim.Options(x_tol = 1e-8, g_tol = 0.0, show_trace = true))
-
+              Optim.Options(x_tol = 1e-12, f_tol = 1e-6, g_tol = 1e-4, show_trace = true))
 
 Eerrmin = Optim.minimum(res)
 pargmin = Optim.minimizer(res)
+
+# ace = Pot.LuxCalc(model, pargmin, st, rcut)
+# Eref = []
+# Eace = []
+# for tr in train
+#     exact = (tr.data["energy"].data) / (length(tr))
+#     estim = Pot.lux_energy(tr, ace, _rest(pargmin), st) / (length(tr))
+#     push!(Eref, exact)
+#     push!(Eace, estim)
+# end
+
+# using PyPlot
+# figure()
+# scatter(Eref, Eace, c="red", alpha=0.4)
+# plot(-8.9:0.001:-8.82, -8.9:0.001:-8.82, lw=2, c="k", ls="--")
+# xlabel("Reference energy")
+# ylabel("ACE energy")
+# axis("square")
+# xlim([-8.9, -8.82])
+# ylim([-8.9, -8.82])
+# PyPlot.savefig("W_energy_fitting.png")
