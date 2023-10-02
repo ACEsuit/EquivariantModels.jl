@@ -193,13 +193,8 @@ L : Largest equivariance level
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-struct ConstLinearLayer <: AbstractExplicitLayer
-   in_dim::Integer
-   out_dim::Integer
-   use_cache::Bool
-   # parameters ?
-   @reqfields()
-end
+
+include("ConstLinearLayer.jl")
 
 function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true, rSH = false)
    if rSH && L > 0
@@ -234,7 +229,7 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
       C = _rpi_A2B_matrix(cgen, spec_nlm)
    end
    
-   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
+   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : ConstLinearLayer(C) # WrappedFunction(x -> C * x)
    # TODO: make it a Const_LinearLayer instead
    # C - A2Bmap
    luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
