@@ -1,10 +1,10 @@
 using Polynomials4ML: natural_indices, ScalarPoly4MLBasis, lux
 using LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
 
-struct Radial_basis <:AbstractExplicitContainerLayer{(:Rnl,)}
-    Rnl::AbstractExplicitLayer
+ struct Radial_basis{T <: AbstractExplicitLayer} <:AbstractExplicitContainerLayer{(:Rnl, )}
+    Rnl::T
     # make it meta or just leave it as a NameTuple ?
-    Radialspec::Vector{NamedTuple}
+    Radialspec::Vector #{NamedTuple} #TODO: double check this...
  end
 
 Radial_basis(Rnl::AbstractExplicitLayer, spec_Rnl::Union{Vector{Int}, UnitRange{Int64}}) = 
@@ -31,6 +31,7 @@ function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=r->1,f_tr
       end
    end
    
-   return Radial_basis(Chain(trans = WrappedFunction(xx -> [f_trans(norm(x)) * f_cut(norm(x)) for x in xx]),
-                poly = lux(basis), ), spec)
+   f(r) = f_trans(r) * f_cut(r)
+
+   return Radial_basis(Chain(getnorm = WrappedFunction(x -> norm.(x)), trans = WrappedFunction(x -> f.(x)), poly = lux(basis), ), spec)
 end

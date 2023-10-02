@@ -1,10 +1,12 @@
-using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote 
+using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote, Polynomials4ML
 using Polynomials4ML: LinearLayer, RYlmBasis, lux 
-using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA
+using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA, simple_radial_basis
 using JuLIP, Combinatorics, Test
 using ACEbase.Testing: println_slim, print_tf, fdtest
 using Optimisers: destructure
 using Printf
+
+L = 0
 
 include("staticprod.jl")
 
@@ -89,7 +91,7 @@ model(X, ps, st)
 
 # testing derivative (forces)
 g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1]
-
+grad_model(X, ps, st) = Zygote.gradient(_X -> model(_X, ps, st)[1], X)[1]
 
 F(Rs) = model([Rs, Z0S], ps, st)[1]
 dF(Rs) = Zygote.gradient(rs -> model([rs, Z0S], ps, st)[1], Rs)[1]
@@ -110,3 +112,59 @@ dFp = w -> ( gl = Zygote.gradient(p -> model(X, p, st)[1], ps)[1]; destructure(g
 grad_test2(Fp, dFp, W0)
 
 
+# === define toy loss ===
+function loss(X, p)
+   ps = _rest(p)
+   g = grad_model(X, ps, st)
+   return sum(norm.(g))
+end
+
+p_vec, _rest = destructure(ps)
+
+# === override useful functions ===
+using Polynomials4ML
+import ChainRulesCore: ProjectTo
+using ChainRulesCore
+using SparseArrays
+function Polynomials4ML._pullback_evaluate(∂A, basis::Polynomials4ML.PooledSparseProduct{NB}, BB::Polynomials4ML.TupMat) where {NB}
+   nX = size(BB[1], 1)
+   TA = promote_type(eltype.(BB)..., eltype(∂A))
+   # @show TA
+   ∂BB = ntuple(i -> zeros(TA, size(BB[i])...), NB)
+   Polynomials4ML._pullback_evaluate!(∂BB, ∂A, basis, BB)
+   return ∂BB
+end
+
+function (project::ProjectTo{SparseMatrixCSC})(dx::AbstractArray)
+   dy = if axes(dx) == project.axes
+       dx
+   else
+       if size(dx) != (length(project.axes[1]), length(project.axes[2]))
+           throw(_projection_mismatch(project.axes, size(dx)))
+       end
+       reshape(dx, project.axes)
+   end
+   T = promote_type(ChainRulesCore.project_type(project.element), eltype(dx))
+   nzval = Vector{T}(undef, length(project.rowval))
+   k = 0
+   for col in project.axes[2]
+       for i in project.nzranges[col]
+           row = project.rowval[i]
+           val = dy[row, col]
+           nzval[k += 1] = project.element(val)
+       end
+   end
+   m, n = map(length, project.axes)
+   return SparseMatrixCSC(m, n, project.colptr, project.rowval, nzval)
+end
+
+# === reverse over reverse ===
+using ReverseDiff
+gg1 = ReverseDiff.gradient(_p -> loss(X, _p), p_vec) 
+
+using ACEbase
+ACEbase.Testing.fdtest( 
+         _p -> loss(X, _p), 
+         _p -> ReverseDiff.gradient(__p -> loss1(X, __p), _p), 
+         p_vec )  
+##
