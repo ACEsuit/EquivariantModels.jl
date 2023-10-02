@@ -17,7 +17,7 @@ function grad_test2(f, df, X::AbstractVector; verbose = true)
    verbose && @printf("---------|----------- \n")
    verbose && @printf("    h    | error \n")
    verbose && @printf("---------|----------- \n")
-   for h in 0.1.^(-3:9)
+   for h in 0.1.^(0:12)
       gh = [ (f(X + h * EE[:, i]) - F) / h for i = 1:nX ]
       verbose && @printf(" %.1e | %.2e \n", h, norm(gh - ∇F, Inf))
    end
@@ -27,10 +27,16 @@ rng = Random.MersenneTwister()
 
 rcut = 5.5 
 maxL = 0
-L = 0
-Aspec, AAspec = degord2spec(; totaldegree = 6, 
-                                  order = 3, 
-                                  Lmax = 0, )
+totdeg = 6
+ord = 3
+
+fcut(rcut::Float64,pin::Int=2,pout::Int=2) = r -> (r < rcut ? abs( (r/rcut)^pin - 1)^pout : 0)
+ftrans(r0::Float64=.0,p::Int=2) = r -> ( (1+r0)/(1+r) )^p
+radial = simple_radial_basis(legendre_basis(totdeg),fcut(rcut),ftrans())
+
+Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
+                              order = ord, 
+                              Lmax = maxL, )
 cats = AtomicNumber.([:W, :Cu, :Ni, :Fe, :Al])
 ipairs = collect(Combinatorics.permutations(1:length(cats), 2))
 allcats = collect(SVector{2}.(Combinatorics.permutations(cats, 2)))
@@ -52,7 +58,7 @@ for bb in ori_AAspec
    push!(new_AAspec, newbb)
 end
 
-luxchain, ps, st = equivariant_model(new_AAspec, L; categories=allcats, islong = false)
+luxchain, ps, st = equivariant_model(new_AAspec, radial, L; categories=allcats, islong = false)
 
 at = rattle!(bulk(:W, cubic=true, pbc=true) * 2, 0.1)
 iCu = [5, 12]; iNi = [3, 8]; iAl = [10]; iFe = [6];
@@ -67,7 +73,7 @@ get_Z0S(zz0, ZZS) = [SVector{2}(zz0, zzs) for zzs in ZZS]
 Z0S = get_Z0S(z0, Zs)
 
 # input of luxmodel
-X = (Rs, Z0S)
+X = [Rs, Z0S]
 
 out, st = luxchain(X, ps, st)
 
@@ -85,12 +91,13 @@ model(X, ps, st)
 g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1]
 
 
-F(Rs) = model((Rs, Z0S), ps, st)[1]
-dF(Rs) = Zygote.gradient(rs -> model((rs, Z0S), ps, st)[1], Rs)[1]
+F(Rs) = model([Rs, Z0S], ps, st)[1]
+dF(Rs) = Zygote.gradient(rs -> model([rs, Z0S], ps, st)[1], Rs)[1]
 
 ##
 @info("test derivative w.r.t X")
 print_tf(@test fdtest(F, dF, Rs; verbose=true))
+println()
 
 
 @info("test derivative w.r.t parameter")
