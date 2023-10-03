@@ -12,7 +12,7 @@ function gen_dat()
    return at
 end
 Random.seed!(0)
-train = [gen_dat() for _ = 1:500];
+train = [gen_dat() for _ = 1:1000];
 
 rcut = 5.5 
 maxL = 0
@@ -160,35 +160,39 @@ end
 p0 = zero.(p_vec)
 E_loss(train, calc, p0)
 ReverseDiff.gradient(p -> E_loss(train, calc, p), p0)
+Zygote.gradient(p -> E_loss(train, calc, p), p_vec)[1]
 
 using Optim
 obj_f = x -> E_loss(train, calc, x)
-obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> E_loss(train, calc, p), x))
+# obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> E_loss(train, calc, p), x))
+obj_g! = (g, x) -> copyto!(g, Zygote.gradient(p -> E_loss(train, calc, p), x)[1])
 
 res = optimize(obj_f, obj_g!, p0,
-              Optim.LBFGS(),
-              Optim.Options(x_tol = 1e-12, f_tol = 1e-6, g_tol = 1e-4, show_trace = true))
+                Optim.GradientDescent(),
+              Optim.Options(x_tol = 1e-15, f_tol = 1e-15, g_tol = 1e-6, show_trace = true))
+
+            #   Optim.BFGS()
 
 Eerrmin = Optim.minimum(res)
 pargmin = Optim.minimizer(res)
 
-# ace = Pot.LuxCalc(model, pargmin, st, rcut)
-# Eref = []
-# Eace = []
-# for tr in train
-#     exact = (tr.data["energy"].data) / (length(tr))
-#     estim = Pot.lux_energy(tr, ace, _rest(pargmin), st) / (length(tr))
-#     push!(Eref, exact)
-#     push!(Eace, estim)
-# end
+ace = Pot.LuxCalc(model, pargmin, st, rcut)
+Eref = []
+Eace = []
+for tr in train
+    exact = tr.data["energy"].data
+    estim = Pot.lux_energy(tr, ace, _rest(pargmin), st) 
+    push!(Eref, exact)
+    push!(Eace, estim)
+end
 
-# using PyPlot
-# figure()
-# scatter(Eref, Eace, c="red", alpha=0.4)
-# plot(-8.9:0.001:-8.82, -8.9:0.001:-8.82, lw=2, c="k", ls="--")
-# xlabel("Reference energy")
-# ylabel("ACE energy")
-# axis("square")
-# xlim([-8.9, -8.82])
-# ylim([-8.9, -8.82])
-# PyPlot.savefig("W_energy_fitting.png")
+using PyPlot
+figure()
+scatter(Eref, Eace, c="red", alpha=0.4)
+plot(-480:0.1:-478, -480:0.1:-478, lw=2, c="k", ls="--")
+xlabel("Reference energy")
+ylabel("ACE energy")
+axis("square")
+xlim([-480, -478])
+ylim([-480, -478])
+PyPlot.savefig("W_energy_fitting.png")
