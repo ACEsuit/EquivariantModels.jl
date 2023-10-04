@@ -229,9 +229,7 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
       C = _rpi_A2B_matrix(cgen, spec_nlm)
    end
    
-   # l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
-   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : ConstLinearLayer(C)
-   # TODO: make it a Const_LinearLayer instead
+   l_sym = islong ? Lux.Parallel(nothing, [ConstLinearLayer(C[i],pos[i]) for i = 1:L+1]... ) : ConstLinearLayer(C)
    # C - A2Bmap
    luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
    # luxchain = Chain(xx2AA = luxchain_tmp, BB = l_sym)
@@ -272,7 +270,7 @@ function equivariant_SYY_model(spec_nlm, radial::Radial_basis, L::Int64; categor
    
    cgen = Rot3DCoeffs_long(L) # TODO: this should be made group related
    C = _rpi_A2B_matrix(cgen, spec_nlm)
-   l_sym = WrappedFunction(x -> C * x)
+   l_sym = ConstLinearLayer(C)
    
    # C - A2Bmap
    luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
