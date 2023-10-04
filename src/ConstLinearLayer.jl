@@ -28,10 +28,10 @@ function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractVector)
     return val, pb
 end
 
-(l::ConstLinearLayer)(x::AbstractArray,ps,st) = l(x)
+(l::ConstLinearLayer)(x::AbstractArray,ps,st) = (l(x), st)
 
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray,ps,st)
-    val = l(x)
+    val = l(x,ps,st)
     function pb(A)
         return NoTangent(), NoTangent(), l.W' * A[1], (W = A[1] * x',), NoTangent()
     end

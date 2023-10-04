@@ -229,7 +229,8 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
       C = _rpi_A2B_matrix(cgen, spec_nlm)
    end
    
-   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : ConstLinearLayer(C) # WrappedFunction(x -> C * x)
+   # l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : WrappedFunction(x -> C * x)
+   l_sym = islong ? Lux.Parallel(nothing, [WrappedFunction(x -> C[i] * x[pos[i]]) for i = 1:L+1]... ) : ConstLinearLayer(C)
    # TODO: make it a Const_LinearLayer instead
    # C - A2Bmap
    luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)
