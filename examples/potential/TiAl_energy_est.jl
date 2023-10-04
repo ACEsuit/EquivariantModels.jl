@@ -6,9 +6,26 @@ using JuLIP, Combinatorics
 include("staticprod.jl")
 
 # data
-train = read_extxyz("TiAl_tutorial.xyz")
+# TiAl
+# train = read_extxyz("TiAl_tutorial.xyz")
+# NiAl
+using PyCall, ASE
+asekim = pyimport("ase.calculators.kim.kim")
+eam = asekim.KIM("EAM_Dynamo_MishinMehlPapaconstantopoulos_2002_NiAl__MO_109933561507_005");
+eam = ASECalculator(eam)
+io = pyimport("ase.io")
+at0 = ASE.Atoms(ASE.ASEAtoms(io.read("mp-1487_AlNi.cif")))
+function gen_dat()
+   at_ = deepcopy(at0) * 2
+   rattle!(at_, 0.2)
+   set_data!(at_, "energy", energy(eam, at_))
+   return at_
+end
+# Random.seed!(0)
+train = [gen_dat() for _ = 1:100];
 
-spec = [:Ti, :Al]
+spec = [:Ni, :Al]
+# spec = [:Ti, :Al]
 
 rng = Random.MersenneTwister()
 
@@ -174,5 +191,36 @@ res = optimize(obj_f, obj_g!, p0,
 Eerrmin = Optim.minimum(res)
 pargmin = Optim.minimizer(res)
 
+ace = Pot.LuxCalc(model, pargmin, st, rcut)
+Eref = []
+Eace = []
+for tr in train
+    exact = tr.data["energy"].data
+    estim = Pot.lux_energy(tr, ace, _rest(pargmin), st) 
+    push!(Eref, exact)
+    push!(Eace, estim)
+end
 
+test = [gen_dat() for _ = 1:300];
+Eref_te = []
+Eace_te = []
+for te in test
+    exact = te.data["energy"].data
+    estim = Pot.lux_energy(te, ace, _rest(pargmin), st) 
+    push!(Eref_te, exact)
+    push!(Eace_te, estim)
+end
+
+using PyPlot
+figure()
+scatter(Eref, Eace, c="red", alpha=0.4)
+scatter(Eref_te, Eace_te, c="blue", alpha=0.4)
+plot(-71:0.01:-69.5, -71:0.01:-69.5, lw=2, c="k", ls="--")
+PyPlot.legend(["Train", "Test"], fontsize=14, loc=2);
+xlabel("Reference energy")
+ylabel("ACE energy")
+axis("square")
+xlim([-71, -69.5])
+ylim([-71, -69.5])
+PyPlot.savefig("NiAl_energy_fitting.png")
 

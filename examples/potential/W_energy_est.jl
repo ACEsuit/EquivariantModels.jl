@@ -7,12 +7,12 @@ rng = Random.MersenneTwister()
 using ASE, JuLIP
 function gen_dat()
    eam = JuLIP.Potentials.EAM("w_eam4.fs")
-   at = rattle!(bulk(:W, cubic=true) * 3, 0.1)
+   at = rattle!(bulk(:W, cubic=true) * 2, 0.1)
    set_data!(at, "energy", energy(eam, at))
    return at
 end
 Random.seed!(0)
-train = [gen_dat() for _ = 1:1000];
+train = [gen_dat() for _ = 1:100];
 
 rcut = 5.5 
 maxL = 0
@@ -167,11 +167,16 @@ obj_f = x -> E_loss(train, calc, x)
 # obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> E_loss(train, calc, p), x))
 obj_g! = (g, x) -> copyto!(g, Zygote.gradient(p -> E_loss(train, calc, p), x)[1])
 
-res = optimize(obj_f, obj_g!, p0,
-                Optim.GradientDescent(),
-              Optim.Options(x_tol = 1e-15, f_tol = 1e-15, g_tol = 1e-6, show_trace = true))
+using LineSearches: BackTracking
+using LineSearches
+# solver = Optim.ConjugateGradient(linesearch = BackTracking(order=2, maxstep=Inf))
+# solver = Optim.GradientDescent(linesearch = BackTracking(order=2, maxstep=Inf) )
+solver = Optim.BFGS()
+# solver = Optim.LBFGS() #alphaguess = LineSearches.InitialHagerZhang(),
+               # linesearch = BackTracking(order=2, maxstep=Inf) )
 
-            #   Optim.BFGS()
+res = optimize(obj_f, obj_g!, p0, solver,
+              Optim.Options(x_tol = 1e-10, f_tol = 1e-10, g_tol = 1e-6, show_trace = true))
 
 Eerrmin = Optim.minimum(res)
 pargmin = Optim.minimizer(res)
@@ -186,13 +191,25 @@ for tr in train
     push!(Eace, estim)
 end
 
+test = [gen_dat() for _ = 1:300];
+Eref_te = []
+Eace_te = []
+for te in test
+    exact = te.data["energy"].data
+    estim = Pot.lux_energy(te, ace, _rest(pargmin), st) 
+    push!(Eref_te, exact)
+    push!(Eace_te, estim)
+end
+
 using PyPlot
 figure()
 scatter(Eref, Eace, c="red", alpha=0.4)
-plot(-480:0.1:-478, -480:0.1:-478, lw=2, c="k", ls="--")
+scatter(Eref_te, Eace_te, c="blue", alpha=0.4)
+plot(-142.3:0.01:-141.5, -142.3:0.01:-141.5, lw=2, c="k", ls="--")
+PyPlot.legend(["Train", "Test"], fontsize=14, loc=2);
 xlabel("Reference energy")
 ylabel("ACE energy")
 axis("square")
-xlim([-480, -478])
-ylim([-480, -478])
+xlim([-142.3, -141.5])
+ylim([-142.3, -141.5])
 PyPlot.savefig("W_energy_fitting.png")
