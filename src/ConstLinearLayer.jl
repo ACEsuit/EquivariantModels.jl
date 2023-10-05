@@ -2,15 +2,11 @@ import ChainRulesCore: rrule
 using LuxCore
 using LuxCore: AbstractExplicitLayer
 
-struct ConstLinearLayer <: AbstractExplicitLayer # where {in_dim,out_dim,T}
-    op #::AbstractMatrix{T}  
-    position::Union{Vector{Int64}, UnitRange{Int64}}
+struct ConstLinearLayer <: AbstractExplicitLayer
+    op
 end
 
-ConstLinearLayer(op) = ConstLinearLayer(op,1:size(op,2))
-# ConstLinearLayer(op, pos::Union{Vector{Int64}, UnitRange{Int64}}) = ConstLinearLayer(op,pos)
-
-(l::ConstLinearLayer)(x::AbstractVector) = l.op * x[l.position]
+(l::ConstLinearLayer)(x::AbstractVector) = l.op * x[1:size(l.op,2)]
 
 (l::ConstLinearLayer)(x::AbstractMatrix) = begin
     Tmp = l(x[1,:])
@@ -20,6 +16,9 @@ ConstLinearLayer(op) = ConstLinearLayer(op,1:size(op,2))
     return Tmp'
  end
 
+ (l::ConstLinearLayer)(x::AbstractArray,ps,st) = (l(x), st)
+
+ # NOTE: the following rrule is kept because there is a issue with SparseArray
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractVector)
     val = l(x)
     function pb(A)
@@ -28,8 +27,6 @@ function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractVector)
     return val, pb
 end
 
-(l::ConstLinearLayer)(x::AbstractArray,ps,st) = (l(x), st)
-
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray,ps,st)
     val = l(x,ps,st)
     function pb(A)
@@ -37,11 +34,3 @@ function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray,ps
     end
     return val, pb
 end
-
-# function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractMatrix, ps, st)
-#     val = l(x, ps, st)
-#     function pb(A)
-#        return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
-#     end
-#     return val, pb
-#  end
