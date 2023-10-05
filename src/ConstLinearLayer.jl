@@ -3,14 +3,14 @@ using LuxCore
 using LuxCore: AbstractExplicitLayer
 
 struct ConstLinearLayer <: AbstractExplicitLayer # where {in_dim,out_dim,T}
-    W #::AbstractMatrix{T}  
+    op #::AbstractMatrix{T}  
     position::Union{Vector{Int64}, UnitRange{Int64}}
 end
 
-ConstLinearLayer(W) where T = ConstLinearLayer(W,1:size(W,2))
-# ConstLinearLayer(W, pos::Union{Vector{Int64}, UnitRange{Int64}}) = ConstLinearLayer(W,pos)
+ConstLinearLayer(op) = ConstLinearLayer(op,1:size(op,2))
+# ConstLinearLayer(op, pos::Union{Vector{Int64}, UnitRange{Int64}}) = ConstLinearLayer(op,pos)
 
-(l::ConstLinearLayer)(x::AbstractVector) = l.W * x[l.position]
+(l::ConstLinearLayer)(x::AbstractVector) = l.op * x[l.position]
 
 (l::ConstLinearLayer)(x::AbstractMatrix) = begin
     Tmp = l(x[1,:])
@@ -23,7 +23,7 @@ ConstLinearLayer(W) where T = ConstLinearLayer(W,1:size(W,2))
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractVector)
     val = l(x)
     function pb(A)
-        return NoTangent(), NoTangent(), l.W' * A[1], (W = A[1] * x',), NoTangent()
+        return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
     end
     return val, pb
 end
@@ -33,7 +33,7 @@ end
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray,ps,st)
     val = l(x,ps,st)
     function pb(A)
-        return NoTangent(), NoTangent(), l.W' * A[1], (W = A[1] * x',), NoTangent()
+        return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
     end
     return val, pb
 end
@@ -41,7 +41,7 @@ end
 # function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractMatrix, ps, st)
 #     val = l(x, ps, st)
 #     function pb(A)
-#        return NoTangent(), NoTangent(), l.W' * A[1], (W = A[1] * x',), NoTangent()
+#        return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
 #     end
 #     return val, pb
 #  end
