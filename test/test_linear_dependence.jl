@@ -1,7 +1,6 @@
 using EquivariantModels, StaticArrays, Test, Polynomials4ML, LinearAlgebra
 using ACEbase.Testing: print_tf
-using Rotations, WignerD, BlockDiagonals
-using EquivariantModels: Radial_basis, xx2AA, degord2spec
+using EquivariantModels: Radial_basis, degord2spec
 using Polynomials4ML:lux
 using RepLieGroups
 
