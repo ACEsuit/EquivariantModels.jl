@@ -7,7 +7,7 @@ rng = Random.MersenneTwister()
 using ASE, JuLIP
 function gen_dat()
    eam = JuLIP.Potentials.EAM("test/w_eam4.fs")
-   at = rattle!(bulk(:W, cubic=true) * 2, 0.1)
+   at = rattle!(bulk(:W, cubic=true) * 2, 0.2)
    set_data!(at, "energy", energy(eam, at))
    return at
 end
@@ -16,11 +16,11 @@ train = [gen_dat() for _ = 1:100];
 
 rcut = 5.5 
 maxL = 0
-totdeg = 6
-ord = 3
+totdeg = 10
+ord = 2
 
 fcut(rcut::Float64,pin::Int=2,pout::Int=2) = r -> (r < rcut ? abs( (r/rcut)^pin - 1)^pout : 0)
-ftrans(r0::Float64=.0,p::Int=2) = r -> ( (1+r0)/(1+r) )^p
+ftrans(r0::Float64=2.0,p::Int=2) = r -> ( (1+r0)/(1+r) )^p
 radial = simple_radial_basis(legendre_basis(totdeg),fcut(rcut),ftrans())
 
 Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
@@ -166,22 +166,22 @@ obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> E_loss(train, calc, p), 
 using LineSearches: BackTracking
 using LineSearches
 # solver = Optim.ConjugateGradient()#linesearch = BackTracking(order=2, maxstep=Inf))
-# solver = Optim.GradientDescent(linesearch = BackTracking(order=2, maxstep=Inf) )
-# solver = Optim.BFGS()
-solver = Optim.LBFGS() #alphaguess = LineSearches.InitialHagerZhang(),
+# solver = Optim.GradientDescent()
+solver = Optim.BFGS()
+# solver = Optim.LBFGS() #alphaguess = LineSearches.InitialHagerZhang(),
                # linesearch = BackTracking(order=2, maxstep=Inf) )
 
 res = optimize(obj_f, obj_g!, p0, solver,
-               Optim.Options(f_tol = 1e-10, g_tol = 1e-6, show_trace = true))
+               Optim.Options(g_tol = 1e-6, show_trace = true))
 
 Eerrmin = Optim.minimum(res)
 RMSE = sqrt(Eerrmin / length(train))
 pargmin = Optim.minimizer(res)
 p1 = pargmin
 
-train = [gen_dat() for _ = 1:500];
+train = [gen_dat() for _ = 1:200];
 res_new = optimize(obj_f, obj_g!, p1, solver,
-               Optim.Options(f_tol = 1e-10, g_tol = 1e-5, show_trace = true))
+               Optim.Options(g_tol = 1e-6, show_trace = true))
 
 Eerrmin_new = Optim.minimum(res_new)
 RMSE_new = sqrt(Eerrmin_new / length(train))
@@ -208,15 +208,17 @@ for te in test
     push!(Eace_te, estim)
 end
 
+MIN = Eref_te |> minimum
+MAX = Eref_te |> maximum
 using PyPlot
 figure()
 scatter(Eref, Eace, c="red", alpha=0.4)
 scatter(Eref_te, Eace_te, c="blue", alpha=0.4)
-plot(-142.3:0.01:-141.5, -142.3:0.01:-141.5, lw=2, c="k", ls="--")
+plot(-142.3:0.01:-137.5, -142.3:0.01:-137.5, lw=2, c="k", ls="--")
 PyPlot.legend(["Train", "Test"], fontsize=14, loc=2);
 xlabel("Reference energy")
 ylabel("ACE energy")
 axis("square")
-xlim([-142.3, -141.5])
-ylim([-142.3, -141.5])
+xlim([-142.3, -137.5])
+ylim([-142.3, -137.5])
 PyPlot.savefig("W_energy_fitting.png")
