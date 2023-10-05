@@ -160,6 +160,9 @@ function specnlm2spec1p(spec_nlm)
     return spec1p, lmax, nmax + 1
 end
 
+nset(spec1p) = [ (n=spec.n,) for spec in spec1p]
+nlset(spec1p) = [ (n=spec.n, l=spec.l,) for spec in spec1p]
+
 """
 closure(spec_nlm,filter)
 Make a spec_nlm to be a "complete" set to be symmetrised w.r.t to the filter
