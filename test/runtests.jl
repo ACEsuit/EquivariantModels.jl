@@ -9,6 +9,6 @@ using Test
         include("test_rSH_equivariance.jl")
     end
     @testset "Linear_Dependence" begin 
-        include("test_linear_dependence")
+        include("test_linear_dependence.jl")
     end
 end
