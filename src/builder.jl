@@ -136,8 +136,8 @@ function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3, rSH = false) 
    # from spec_nlm to all possible spec1p
    spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
    # An assertation whether all the radial specs are in spec1p
-   @assert issubset(radial.Radialspec, nset(spec1p)) || issubset(radial.Radialspec, nlset(spec1p))
-   
+   @assert issubset(nset(spec1p), radial.Radialspec) || issubset(nlset(spec1p), radial.Radialspec)
+
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
    Ylm = rSH ? RYlmBasis(lmax) : CYlmBasis(lmax)
    # Rn = radial_basis(nmax)
