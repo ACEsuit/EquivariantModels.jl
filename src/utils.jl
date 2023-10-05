@@ -253,3 +253,11 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
 end
 
 get_i(i) = WrappedFunction(t -> t[i])
+
+function new_sparse_matrix(C,pos,len)
+   C_new = sparse(zeros(typeof(C[1]),size(C,1),len))
+   for i = 1:size(C,1)
+      C_new[i,pos] = C[i,:]
+   end
+   return sparse(C_new)
+end

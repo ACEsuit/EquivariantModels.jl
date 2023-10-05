@@ -2,13 +2,13 @@ import ChainRulesCore: rrule
 using LuxCore
 using LuxCore: AbstractExplicitLayer
 
-struct ConstLinearLayer <: AbstractExplicitLayer
-    op
+struct ConstLinearLayer{T} <: AbstractExplicitLayer
+    op::T
 end
 
-(l::ConstLinearLayer)(x::AbstractVector) = l.op * x[1:size(l.op,2)]
+(l::ConstLinearLayer{T})(x::AbstractVector) where T = l.op * x
 
-(l::ConstLinearLayer)(x::AbstractMatrix) = begin
+(l::ConstLinearLayer{T})(x::AbstractMatrix) where T = begin
     Tmp = l(x[1,:])
     for i = 2:size(x,1)
         Tmp = [Tmp l(x[i,:])]
