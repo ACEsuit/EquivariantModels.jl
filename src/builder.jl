@@ -1,6 +1,6 @@
 using LinearAlgebra
 using SparseArrays: SparseMatrixCSC, sparse
-using RepLieGroups.O3: Rot3DCoeffs, Rot3DCoeffs_real, Rot3DCoeffs_long, re_basis, SYYVector, mm_filter
+using RepLieGroups.O3: Rot3DCoeffs, Rot3DCoeffs_real, Rot3DCoeffs_long, re_basis, SYYVector, mm_filter, coco_dot
 using Polynomials4ML: legendre_basis, RYlmBasis, natural_indices, degree
 using Polynomials4ML.Utils: gensparse
 using Lux: WrappedFunction
@@ -8,6 +8,7 @@ using Lux
 using Random
 using Polynomials4ML
 using StaticArrays
+using Combinatorics
 
 export equivariant_model, equivariant_SYY_model, equivariant_luxchain_constructor, equivariant_luxchain_constructor_new
 
@@ -23,6 +24,33 @@ _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T},Rot3DCoeffs_real{L,T},Rot3DCoeffs_l
                 spec::Vector{Vector{NamedTuple}})
 Return a sparse matrix for symmetrisation of AA basis of spec with equivariance specified by cgen
 """
+function rpe_basis(A::Union{Rot3DCoeffs,Rot3DCoeffs_long,Rot3DCoeffs_real}, nn::SVector{N, TN}, ll::SVector{N, Int}) where {N, TN}
+   Ure, Mre = re_basis(A, ll)
+   G = _gramian(nn, ll, Ure, Mre)
+   S = svd(G)
+   rk = rank(Diagonal(S.S); rtol =  1e-7)
+   Urpe = S.U[:, 1:rk]'
+   return Diagonal(sqrt.(S.S[1:rk])) * Urpe * Ure, Mre
+end
+
+
+function _gramian(nn, ll, Ure, Mre)
+   N = length(nn)
+   nre = size(Ure, 1)
+   G = zeros(Complex{Float64}, nre, nre)
+   for σ in permutations(1:N)
+      if (nn[σ] != nn) || (ll[σ] != ll); continue; end
+      for (iU1, mm1) in enumerate(Mre), (iU2, mm2) in enumerate(Mre)
+         if mm1[σ] == mm2
+            for i1 = 1:nre, i2 = 1:nre
+               G[i1, i2] += coco_dot(Ure[i1, iU1], Ure[i2, iU2])
+            end
+         end
+      end
+   end
+   return G
+end
+
 function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Rot3DCoeffs_long{L,T}}, spec) where {L,T}
    # allocate triplet format
    Irow, Jcol = Int[], Int[]
@@ -55,7 +83,7 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
          if (nn,ll,ss) in nnllset; continue; end
 
          # get the Mll indices and coeffs
-         U, Mll = re_basis(cgen, ll)
+         U, Mll = rpe_basis(cgen, nn, ll)
          # conver the Mlls into basis functions (NamedTuples)
       
          rpibs = [_nlms2b(nn, ll, mm, ss) for mm in Mll]
@@ -83,7 +111,8 @@ function _rpi_A2B_matrix(cgen::Union{Rot3DCoeffs{L,T}, Rot3DCoeffs_real{L,T}, Ro
          if (nn,ll) in nnllset; continue; end
 
          # get the Mll indices and coeffs
-         U, Mll = re_basis(cgen, ll)
+         # U, Mll = re_basis(cgen, ll)
+         U, Mll = rpe_basis(cgen, nn, ll)
          # conver the Mlls into basis functions (NamedTuples)
       
          rpibs = [_nlms2b(nn, ll, mm) for mm in Mll]

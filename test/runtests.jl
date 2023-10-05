@@ -8,4 +8,7 @@ using Test
         include("test_equiv_with_cate.jl")
         include("test_rSH_equivariance.jl")
     end
+    @testset "Linear_Dependence" begin 
+        include("test_linear_dependence.jl")
+    end
 end
