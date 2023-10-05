@@ -261,6 +261,7 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
       C = _rpi_A2B_matrix(cgen, spec_nlm)
    end
    
+   #TODO:make use [ C[i], pos[i] ] to generate another sparse matrix so that...
    l_sym = islong ? Lux.Parallel(nothing, [ConstLinearLayer(C[i],pos[i]) for i = 1:L+1]... ) : ConstLinearLayer(C)
    # C - A2Bmap
    luxchain = append_layer(luxchain_tmp, l_sym; l_name = :BB)

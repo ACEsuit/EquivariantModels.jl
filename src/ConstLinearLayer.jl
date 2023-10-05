@@ -2,17 +2,15 @@ import ChainRulesCore: rrule
 using LuxCore
 using LuxCore: AbstractExplicitLayer
 
-struct ConstLinearLayer{T} <: AbstractExplicitLayer # where {in_dim,out_dim,T}
-    W::AbstractMatrix{T}  
+struct ConstLinearLayer <: AbstractExplicitLayer # where {in_dim,out_dim,T}
+    W #::AbstractMatrix{T}  
     position::Union{Vector{Int64}, UnitRange{Int64}}
-    in_dim::Integer
-    out_dim::Integer
 end
 
-ConstLinearLayer(W::AbstractMatrix{T}) where T = ConstLinearLayer(W,1:size(W,2),size(W,2),size(W,1))
-ConstLinearLayer(W::AbstractMatrix{T}, pos::Union{Vector{Int64}, UnitRange{Int64}}) where T = ConstLinearLayer(W,pos,size(W,2),size(W,1))
+ConstLinearLayer(W) where T = ConstLinearLayer(W,1:size(W,2))
+# ConstLinearLayer(W, pos::Union{Vector{Int64}, UnitRange{Int64}}) = ConstLinearLayer(W,pos)
 
-(l::ConstLinearLayer)(x::AbstractVector) = l.in_dim == length(x[l.position]) ? l.W * x[l.position] : error("x (or the position index) has a wrong length!")
+(l::ConstLinearLayer)(x::AbstractVector) = l.W * x[l.position]
 
 (l::ConstLinearLayer)(x::AbstractMatrix) = begin
     Tmp = l(x[1,:])
