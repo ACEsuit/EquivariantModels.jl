@@ -254,10 +254,11 @@ end
 
 get_i(i) = WrappedFunction(t -> t[i])
 
-function new_sparse_matrix(C,pos,len)
-   C_new = sparse(zeros(typeof(C[1]),size(C,1),len))
-   for i = 1:size(C,1)
-      C_new[i,pos] = C[i,:]
+function sparse_trans(pos,len::Int64)
+   @assert maximum(pos) <= len
+   A = sparse(zeros(Int64, length(pos),len))
+   for i = 1:length(pos)
+      A[i,pos[i]] = 1
    end
-   return sparse(C_new)
+   return sparse(A)
 end
