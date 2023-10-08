@@ -40,6 +40,7 @@ Aspec, AAspec = degord2spec(radial; totaldegree = totdeg,
                               order = ord, 
                               Lmax = maxL, )
 cats = AtomicNumber.([:W, :Cu, :Ni, :Fe, :Al])
+
 ipairs = collect(Combinatorics.permutations(1:length(cats), 2))
 allcats = collect(SVector{2}.(Combinatorics.permutations(cats, 2)))
 
@@ -86,11 +87,12 @@ B = out
 model = append_layers(luxchain, get1 =  WrappedFunction(t -> real.(t)), dot = LinearLayer(length(B), 1), get2 = WrappedFunction(t -> t[1]))
 
 ps, st = Lux.setup(MersenneTwister(1234), model)
+ps.dot.W[:] = ps.dot.W[:] / 1000
 
 model(X, ps, st)
 
 # testing derivative (forces)
-g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1]
+g = Zygote.gradient(X -> model(X, ps, st)[1], X)[1][1]
 grad_model(X, ps, st) = Zygote.gradient(_X -> model(_X, ps, st)[1], X)[1]
 
 F(Rs) = model([Rs, Z0S], ps, st)[1]
@@ -115,7 +117,7 @@ grad_test2(Fp, dFp, W0)
 # === define toy loss ===
 function loss(X, p)
    ps = _rest(p)
-   g = grad_model(X, ps, st)
+   g = grad_model(X, ps, st)[1]
    return sum(norm.(g))
 end
 
@@ -160,11 +162,13 @@ end
 
 # === reverse over reverse ===
 using ReverseDiff
-gg1 = ReverseDiff.gradient(_p -> loss(X, _p), p_vec) 
+g1 = ReverseDiff.gradient(_p -> loss(X, _p), p_vec)
+
+Zygote.gradient(_p -> loss(X, _p), p_vec)
 
 using ACEbase
 ACEbase.Testing.fdtest( 
          _p -> loss(X, _p), 
-         _p -> ReverseDiff.gradient(__p -> loss1(X, __p), _p), 
-         p_vec )  
+         _p -> Zygote.gradient(__p -> loss(X, __p), _p), 
+         p_vec )
 ##

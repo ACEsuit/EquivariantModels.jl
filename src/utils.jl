@@ -1,6 +1,5 @@
 using Polynomials4ML: natural_indices
 
-
 """
 _invmap(a::AbstractVector)
 Return a dictionary that maps the elements of a to their indices
@@ -23,30 +22,34 @@ function dropnames(namedtuple::NamedTuple, names::Tuple{Vararg{Symbol}})
 end
 
 """
-getspec1idx(spec1, bRnl, bYlm)
+getspec1idx(spec1, spec_Rnl, bYlm)
 Return a vector of tuples of indices of spec1 w.r.t actual indices (i.e. 1, 2, 3, ...) of bRnl and bYlm
 """
-function getspec1idx(spec1, bRnl, bYlm)
+function getspec1idx(spec1, spec_Rnl, bYlm)
    spec1idx = Vector{Tuple{Int, Int}}(undef, length(spec1))
-   spec_Rnl = natural_indices(bRnl); 
-   # TODO: the following line is to be changed to be l-dependent
-   spec_Rnl = [(n = i, ) for i in spec_Rnl]
+   # try is_l = isinteger(spec_Rnl[1].l); catch; is_l = false; end
    inv_Rnl = _invmap(spec_Rnl)
    
    spec_Ylm = natural_indices(bYlm); inv_Ylm = _invmap(spec_Ylm)
 
    spec1idx = Vector{Tuple{Int, Int}}(undef, length(spec1))
-   for (i, b) in enumerate(spec1)
-      spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l))], inv_Ylm[(l=b.l, m=b.m)])
+   
+   if length(spec_Rnl[1]) > 1 && haskey(spec_Rnl[1],:l)
+      for (i, b) in enumerate(spec1)
+         spec1idx[i] = (inv_Rnl[dropnames(b, (:m, ))], inv_Ylm[(l=b.l, m=b.m)])
+      end
+   else
+      for (i, b) in enumerate(spec1)
+         spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l))], inv_Ylm[(l=b.l, m=b.m)])
+      end
    end
+   
    return spec1idx
 end
 
-function getspec1idx(spec1, bRnl, bYlm, bδs)
+function getspec1idx(spec1, spec_Rnl, bYlm, bδs)
    spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
-   
-   spec_Rnl = natural_indices(bRnl)
-   spec_Rnl = [(n = i, ) for i in spec_Rnl]
+   # try is_l = isinteger(spec_Rnl[1].l); catch; is_l = false; end
    inv_Rnl = _invmap(spec_Rnl)
 
    spec_Ylm = natural_indices(bYlm); inv_Ylm = _invmap(spec_Ylm)
@@ -54,9 +57,17 @@ function getspec1idx(spec1, bRnl, bYlm, bδs)
    slist = bδs.categories
 
    spec1idx = Vector{Tuple{Int, Int, Int}}(undef, length(spec1))
-   for (i, b) in enumerate(spec1)
-      spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l, :s))], inv_Ylm[(l=b.l, m=b.m)], val2i(slist, b.s))
+   
+   if length(spec_Rnl[1]) > 1 && haskey(spec_Rnl[1],:l)
+      for (i, b) in enumerate(spec1)
+         spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :s))], inv_Ylm[(l=b.l, m=b.m)], val2i(slist, b.s))
+      end
+   else
+      for (i, b) in enumerate(spec1)
+         spec1idx[i] = (inv_Rnl[dropnames(b, (:m, :l, :s))], inv_Ylm[(l=b.l, m=b.m)], val2i(slist, b.s))
+      end
    end
+
    return spec1idx
 end
 
@@ -64,18 +75,24 @@ end
 make_nlms_spec(bRnl, bYlm)
 Return a vector of tuples of indices of spec1 w.r.t naural indices (i.e. (n = ..., l = ..., m = ...) ) of bRnl and bYlm
 """
-function make_nlms_spec(bRn, bYlm;
+function make_nlms_spec(radial::Radial_basis, bYlm;
             totaldegree::Int64 = -1,
             admissible = nothing, 
             nnuc = 0)
    
-   spec_Rn = natural_indices(bRn)
+   spec_Rn = radial.Radialspec
    spec_Ylm = natural_indices(bYlm)
    
    spec1 = []
    for (iR, br) in enumerate(spec_Rn), (iY, by) in enumerate(spec_Ylm)
       if admissible(br, by) 
-         push!(spec1, (n = br, l = by.l, m = by.m))
+         if haskey(br,:l)
+            if br.l == by.l
+               push!(spec1, (n = br.n, l = by.l, m = by.m))
+            end
+         else
+            push!(spec1, (n = br.n, l = by.l, m = by.m))
+         end
       end
    end
    return spec1 
@@ -143,6 +160,9 @@ function specnlm2spec1p(spec_nlm)
     return spec1p, lmax, nmax + 1
 end
 
+nset(spec1p) = [ (n=spec.n,) for spec in spec1p]
+nlset(spec1p) = [ (n=spec.n, l=spec.l,) for spec in spec1p]
+
 """
 closure(spec_nlm,filter)
 Make a spec_nlm to be a "complete" set to be symmetrised w.r.t to the filter
@@ -197,20 +217,24 @@ end
 degord2spec(;totaldegree, order, Lmax, radial_basis = legendre_basis, wL = 1, islong = true)
 Return a list of AA specifications and A specifications
 """
-function degord2spec(;totaldegree, order, Lmax, catagories = [], radial_basis = legendre_basis, wL = 1, islong = true)
-   Rn = radial_basis(totaldegree)
+function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories = [], wL = 1, islong = true, rSH = false)
+   # Rn = radial.radial_basis(totaldegree)
    Ylm = CYlmBasis(totaldegree)
 
-   spec1p = make_nlms_spec(Rn, Ylm; totaldegree = totaldegree, admissible = (br, by) -> br + wL * by.l <= totaldegree)
+   spec1p = make_nlms_spec(radial, Ylm; totaldegree = totaldegree, admissible = (br, by) -> br.n + wL * by.l <= totaldegree)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
-   spec1pidx = getspec1idx(spec1p, Rn, Ylm)
+   spec1pidx = getspec1idx(spec1p, radial.Radialspec, Ylm)
 
    # define sparse for n-correlations
    tup2b = vv -> [ spec1p[v] for v in vv[vv .> 0]  ]
    default_admissible = bb -> length(bb) == 0 || sum(b.n for b in bb) + wL * sum(b.l for b in bb) <= totaldegree
 
    # to construct SS, SD blocks
-   filter_ = islong ? RPE_filter_long(Lmax) : RPE_filter(Lmax)
+   if rSH
+      filter_ = RPE_filter_real(Lmax)
+   else
+      filter_ = islong ? RPE_filter_long(Lmax) : RPE_filter(Lmax)
+   end
 
    specAA = gensparse(; NU = order, tup2b = tup2b, filter = filter_, 
                         admissible = default_admissible,
@@ -227,3 +251,5 @@ function degord2spec(;totaldegree, order, Lmax, catagories = [], radial_basis = 
    Aspec = specnlm2spec1p(AAspec)[1]
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
+
+get_i(i) = WrappedFunction(t -> t[i])
