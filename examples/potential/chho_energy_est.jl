@@ -7,7 +7,7 @@ using Optimisers, ReverseDiff
 # dataset
 using ASE, JuLIP
 function gen_dat()
-   eam = JuLIP.Potentials.EAM("/zfs/users/jerryho528/jerryho528/julia_ws/EquivariantModels.jl/examples/potential/w_eam4.fs")
+   eam = JuLIP.Potentials.EAM("w_eam4.fs")
    at = rattle!(bulk(:W, cubic=true) * 2, 0.1)
    set_data!(at, "energy", energy(eam, at))
    set_data!(at, "forces", forces(eam, at))
@@ -16,10 +16,11 @@ function gen_dat()
 end
 Random.seed!(0)
 train = [gen_dat() for _ = 1:20];
+test = [gen_dat() for _ = 1:20];
 
 rcut = 5.5 
 maxL = 0
-totdeg = 5
+totdeg = 8
 ord = 2
 
 fcut(rcut::Float64,pin::Int=2,pout::Int=2) = r -> (r < rcut ? abs( (r/rcut)^pin - 1)^pout : 0)
@@ -142,7 +143,7 @@ ps.dot.W[:] .= 0.01 * randn(length(ps.dot.W))
 calc = Pot.LuxCalc(model, ps, st, rcut)
 at = rattle!(bulk(:W, cubic=true, pbc=true) * 2, 0.1)
 E, F, V = Pot.lux_efv(at, calc, ps, st)
-eam = JuLIP.Potentials.EAM("/zfs/users/jerryho528/jerryho528/julia_ws/EquivariantModels.jl/examples/potential/w_eam4.fs")
+eam = JuLIP.Potentials.EAM("w_eam4.fs")
 Eref = JuLIP.energy(eam, at)
 Fref = JuLIP.forces(eam, at)
 Vref = JuLIP.virial(eam, at)
@@ -173,7 +174,7 @@ function loss(train, calc, p_vec)
       Fref = at.data["forces"].data
       Vref = at.data["virial"].data
       E, F, V = Pot.lux_efv(at, calc, ps, st)
-      err += ( (Eref-E) / Nat)^2 + sum( f -> sum(abs2, f), (Fref .- F) ) / Nat #  + 
+      err += ( (Eref-E) / Nat)^2 + sum( f -> sum(abs2, f), (Fref .- F) ) / Nat / 30  #  + 
          # sum(abs2, (Vref.-V) )
    end
    return err
@@ -224,12 +225,12 @@ g1 = ReverseDiff.gradient(p -> loss(train, calc, p), p_vec)
 
 
 using ACEbase
-train = [gen_dat() for _ = 1:1];
+train_tmp = [gen_dat() for _ = 1:1];
 
 
 ACEbase.Testing.fdtest( 
-         _p -> loss(train, calc, _p), 
-         _p -> ReverseDiff.gradient(__p -> loss(train, calc, __p), _p), 
+         _p -> loss(train_tmp, calc, _p), 
+         _p -> ReverseDiff.gradient(__p -> loss(train_tmp, calc, __p), _p), 
          p_vec)
 
 
@@ -250,35 +251,34 @@ res = optimize(obj_f, obj_g!, p0, solver,
                Optim.Options(g_tol = 1e-6, show_trace = true))
 
 Eerrmin = Optim.minimum(res)
-RMSE = sqrt(Eerrmin / length(train))
+RMSE = sqrt(Eerrmin / 4 / length(train))
 pargmin = Optim.minimizer(res)
 p1 = pargmin
 
-train = [gen_dat() for _ = 1:200];
-res_new = optimize(obj_f, obj_g!, p1, solver,
-               Optim.Options(g_tol = 1e-6, show_trace = true))
+# train = [gen_dat() for _ = 1:20];
+# res_new = optimize(obj_f, obj_g!, p1, solver,
+#                Optim.Options(g_tol = 1e-6, show_trace = true))
 
-Eerrmin_new = Optim.minimum(res_new)
-RMSE_new = sqrt(Eerrmin_new / length(train))
-pargmin_new = Optim.minimizer(res_new)
-# plot the fitting result
+# Eerrmin_new = Optim.minimum(res_new)
+# RMSE_new = sqrt(Eerrmin_new / length(train))
+# pargmin_new = Optim.minimizer(res_new)
+# # plot the fitting result
 
 ace = Pot.LuxCalc(model, pargmin, st, rcut)
 Eref = []
 Eace = []
 for tr in train
     exact = tr.data["energy"].data
-    estim = Pot.lux_energy(tr, ace, _rest(pargmin_new), st) 
+    estim = Pot.lux_energy(tr, ace, _rest(p1), st) 
     push!(Eref, exact)
     push!(Eace, estim)
 end
 
-test = [gen_dat() for _ = 1:300];
 Eref_te = []
 Eace_te = []
 for te in test
     exact = te.data["energy"].data
-    estim = Pot.lux_energy(te, ace, _rest(pargmin_new), st) 
+    estim = Pot.lux_energy(te, ace, _rest(p1), st) 
     push!(Eref_te, exact)
     push!(Eace_te, estim)
 end
@@ -289,11 +289,12 @@ using PyPlot
 figure()
 scatter(Eref, Eace, c="red", alpha=0.4)
 scatter(Eref_te, Eace_te, c="blue", alpha=0.4)
-plot(MIN:0.01:MAX, MIN:0.01:MAX, lw=2, c="k", ls="--")
+plot(MIN-0.5:0.01:MAX+0.5, MIN-0.5:0.01:MAX+0.5, lw=2, c="k", ls="--")
 PyPlot.legend(["Train", "Test"], fontsize=14, loc=2);
 xlabel("Reference energy")
 ylabel("ACE energy")
 axis("square")
 xlim([MIN-0.5, MAX+0.5])
 ylim([MIN-0.5, MAX+0.5])
+title("energy fitting")
 PyPlot.savefig("W_energy_fitting.png")
