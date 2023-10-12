@@ -15,7 +15,7 @@ function gen_dat()
    return at
 end
 Random.seed!(0)
-train = [gen_dat() for _ = 1:20];
+train = [gen_dat() for _ = 1:10];
 
 rcut = 5.5 
 maxL = 0
@@ -105,9 +105,10 @@ module Pot
       nlist = ignore_derivatives() do 
          JuLIP.neighbourlist(at, calc.rcut)
       end
+      T = promote_type(eltype(at.X[1]), eltype(ps.dot.W))
       E = 0.0 
-      F = zeros(SVector{3, Float64}, length(at))
-      V = zero(SMatrix{3, 3, Float64}) 
+      F = zeros(SVector{3, T}, length(at))
+      V = zero(SMatrix{3, 3, T}) 
       for i = 1:length(at) 
          Js, Rs, Zs = ignore_derivatives() do 
             JuLIP.Potentials.neigsz(nlist, at, i)
@@ -115,7 +116,8 @@ module Pot
          comp = Zygote.withgradient(_X -> calc.luxmodel(_X, ps, st)[1], Rs)
          Ei = comp.val 
          _∇Ei = comp.grad[1]
-         ∇Ei = ReverseDiff.value.(_∇Ei)
+         # ∇Ei = ReverseDiff.value.(_∇Ei)
+         ∇Ei = _∇Ei
          # energy 
          E += Ei 
 
@@ -221,28 +223,28 @@ loss(train, calc, p0)
 ReverseDiff.gradient(p -> loss(train, calc, p), p_vec)
 # Zygote.gradient(p -> E_loss(train, calc, p), p_vec)[1]
 
-using ACEbase
-train = [gen_dat() for _ = 1:1];
-ACEbase.Testing.fdtest( 
-         _p -> loss(train, calc, _p), 
-         _p -> ReverseDiff.gradient(__p -> loss(train, calc, __p), _p), 
-         p_vec )
+# using ACEbase
+# train = [gen_dat() for _ = 1:1];
+# ACEbase.Testing.fdtest( 
+#          _p -> loss(train, calc, _p), 
+#          _p -> ReverseDiff.gradient(__p -> loss(train, calc, __p), _p), 
+#          p_vec )
 
-# using Optim
-# obj_f = x -> loss(train, calc, x)
-# obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> loss(train, calc, p), x))
-# # obj_g! = (g, x) -> copyto!(g, Zygote.gradient(p -> E_loss(train, calc, p), x)[1])
+using Optim
+obj_f = x -> loss(train, calc, x)
+obj_g! = (g, x) -> copyto!(g, ReverseDiff.gradient(p -> loss(train, calc, p), x))
+# obj_g! = (g, x) -> copyto!(g, Zygote.gradient(p -> E_loss(train, calc, p), x)[1])
 
-# using LineSearches: BackTracking
-# using LineSearches
-# # solver = Optim.ConjugateGradient()#linesearch = BackTracking(order=2, maxstep=Inf))
-# # solver = Optim.GradientDescent()
-# solver = Optim.BFGS()
-# # solver = Optim.LBFGS() #alphaguess = LineSearches.InitialHagerZhang(),
-#                # linesearch = BackTracking(order=2, maxstep=Inf) )
+using LineSearches: BackTracking
+using LineSearches
+# solver = Optim.ConjugateGradient()#linesearch = BackTracking(order=2, maxstep=Inf))
+# solver = Optim.GradientDescent()
+solver = Optim.BFGS()
+# solver = Optim.LBFGS() #alphaguess = LineSearches.InitialHagerZhang(),
+               # linesearch = BackTracking(order=2, maxstep=Inf) )
 
-# res = optimize(obj_f, obj_g!, p0, solver,
-#                Optim.Options(g_tol = 1e-6, show_trace = true))
+res = optimize(obj_f, obj_g!, p0, solver,
+               Optim.Options(g_tol = 1e-6, show_trace = true))
 
 # Eerrmin = Optim.minimum(res)
 # RMSE = sqrt(Eerrmin / length(train))

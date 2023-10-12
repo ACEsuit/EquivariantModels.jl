@@ -174,8 +174,8 @@ function loss(train, calc, p_vec)
       Fref = at.data["forces"].data
       Vref = at.data["virial"].data
       E, F, V = Pot.lux_efv(at, calc, ps, st)
-      err += ( (Eref-E) / Nat)^2 + sum( f -> sum(abs2, f), (Fref .- F) ) / Nat / 30  #  + 
-         # sum(abs2, (Vref.-V) )
+      err += ( (Eref-E) / Nat)^2 + sum( f -> sum(abs2, f), (Fref .- F) ) / Nat / 30  + 
+         sum(abs2, (Vref.-V) ) / 30
    end
    return err
 end
@@ -224,14 +224,14 @@ g1 = ReverseDiff.gradient(p -> loss(train, calc, p), p_vec)
 # Zygote.gradient(p -> E_loss(train, calc, p), p_vec)[1]
 
 
-using ACEbase
-train_tmp = [gen_dat() for _ = 1:1];
+# using ACEbase
+# train_tmp = [gen_dat() for _ = 1:1];
 
 
-ACEbase.Testing.fdtest( 
-         _p -> loss(train_tmp, calc, _p), 
-         _p -> ReverseDiff.gradient(__p -> loss(train_tmp, calc, __p), _p), 
-         p_vec)
+# ACEbase.Testing.fdtest( 
+#          _p -> loss(train_tmp, calc, _p), 
+#          _p -> ReverseDiff.gradient(__p -> loss(train_tmp, calc, __p), _p), 
+#          p_vec)
 
 
 using Optim
