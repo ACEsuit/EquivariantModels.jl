@@ -1,5 +1,5 @@
 import ChainRulesCore: rrule
-using LuxCore
+using LuxCore, LinearOperators
 using LuxCore: AbstractExplicitLayer
 
 struct ConstLinearLayer{T} <: AbstractExplicitLayer
@@ -34,3 +34,20 @@ function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray,ps
     end
     return val, pb
 end
+
+function _linear_operator_L(L, C, pos, len)
+    if L == 0
+       T = ComplexF64
+       fL = let C=C, idx=pos#, T=T
+           (res, aa) -> mul!(res, C, aa[idx]);# try; mul!(res, C, aa[idx]); catch; mul!(zeros(T,size(C,1)), C, aa[idx]); end
+           end
+    else
+       T = SVector{2L+1,ComplexF64} 
+       fL = let C=C, idx=pos#, T=T
+           (res, aa) -> begin
+               res[:] .= C * aa[idx]
+           end
+       end
+    end
+    return LinearOperator{T}(size(C,1), len, false, false, fL, nothing, nothing; S = Vector{T})
+ end
