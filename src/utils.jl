@@ -253,3 +253,4 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
 end
 
 _get_cat_default(x) = [ (x[i].Zi,x[i].Zj) for i = 1:length(x) ]
+
