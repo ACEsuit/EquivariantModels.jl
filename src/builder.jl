@@ -132,7 +132,7 @@ d: Input dimension
 categories : A list of categories
 """
 
-function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3, rSH = false) # Configuration to AA bases - this is what all chains have in common
+function xx2AA(spec_nlm, radial::Radial_basis; categories=[], _get_cat = _get_cat_default, d=3, rSH = false) # Configuration to AA bases - this is what all chains have in common
    # from spec_nlm to all possible spec1p
    spec1p, lmax, nmax = specnlm2spec1p(spec_nlm)
    # An assertation whether all the radial specs are in spec1p
@@ -146,6 +146,7 @@ function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3, rSH = false) 
       # Define categorical bases
       δs = CategoricalBasis(categories)
       l_δs = P4ML.lux(δs)
+      l_δs = append_layer(Chain(get_cat = WrappedFunction(_get_cat), ), l_δs; l_name = :categorical)
    end
    
    spec1pidx = isempty(categories) ? getspec1idx(spec1p, radial.Radialspec, Ylm) : getspec1idx(spec1p, radial.Radialspec, Ylm, δs)
@@ -158,31 +159,17 @@ function xx2AA(spec_nlm, radial::Radial_basis; categories=[], d=3, rSH = false) 
    # wrapping into lux layers
    l_Rnl = radial.Rnl
    l_Ylm = P4ML.lux(Ylm)
+   l_Ylm = append_layer(Chain(get_pos = WrappedFunction(x -> [ x[i].rr for i = 1:length(x)]), ), l_Ylm; l_name = :angle_poly)
    l_bA = P4ML.lux(bA)
    l_bAA = P4ML.lux(bAA)
    
    Spec_after = Polynomials4ML.reconstruct_spec(l_bAA.basis)
    @assert Spec == Spec_after
    
-   dict = Dict([Spec_after[i] => i for i = 1 : length(Spec_after)])
-   pos = [ dict[sort(Spec[i])] for i = 1:length(Spec) ]
-   
-   # formming model with Lux Chain
-   _norm(x) = norm.(x)
-   
-   if isempty(categories)
-      l_embed = Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm)
-      luxchain = Chain(embed = l_embed, A = l_bA , AA = l_bAA)
-   else      
-      l_Rnl = append_layer(Chain(get_pos = get_i(1), ), l_Rnl; l_name = :radial_poly)
-      l_Ylm = append_layer(Chain(get_pos = get_i(1), ), l_Ylm; l_name = :angle_poly)
-      l_δs = append_layer(Chain(get_cat = get_i(2), ), l_δs; l_name = :categorical)
-      
-      l_embed = Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm, δs = l_δs)
-      luxchain = Chain(embed = l_embed, A = l_bA , AA = l_bAA) # Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
-   end
-   
-   # luxchain = Chain(l_xnxz = l_xnxz, embed = l_embed, A = l_bA , AA = l_bAA)
+   # forming model with Lux Chain
+   l_embed = isempty(categories) ? Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm) : Lux.Parallel(nothing; Rn = l_Rnl, Ylm = l_Ylm, δs = l_δs)
+   luxchain = Chain(embed = l_embed, A = l_bA , AA = l_bAA)
+
    ps, st = Lux.setup(MersenneTwister(1234), luxchain)
       
    return luxchain, ps, st
@@ -196,7 +183,7 @@ L : Largest equivariance level
 categories : A list of categories
 radial_basis : specified radial basis, default using P4ML.legendre_basis
 """
-function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true, rSH = false)
+function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], _get_cat = _get_cat_default, d=3, group="O3", islong=true, rSH = false)
    if rSH && L > 0
       error("rSH is only implemented (for now) for L = 0")
    end
@@ -208,7 +195,7 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm,filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, d = d, rSH = rSH)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, _get_cat = _get_cat, d = d, rSH = rSH)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
 
    if islong
@@ -241,11 +228,11 @@ function equivariant_model(spec_nlm, radial::Radial_basis, L::Int64; categories=
 end
 
 # more constructors equivariant_model
-equivariant_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3", islong=true, rSH = false) = 
+equivariant_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], _get_cat = _get_cat_default, d=3, group="O3", islong=true, rSH = false) = 
      equivariant_model(degord2spec(radial; totaldegree = totdeg, order = ν, Lmax=L, islong = islong)[2], radial, L; categories, d, group, islong, rSH)
 
 # With the _close function, the input could simply be an nnlllist (nlist,llist)
-equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], d=3, group = "O3", islong = true, rSH = false) = begin
+equivariant_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], _get_cat = _get_cat_default, d=3, group = "O3", islong = true, rSH = false) = begin
    filter = islong ? RPE_filter_long(L) : RPE_filter(L)
    equivariant_model(_close(nn, ll; filter = filter), radial, L; categories, d, group, islong, rSH)
 end
@@ -259,14 +246,14 @@ end
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
 
-function equivariant_SYY_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3")
+function equivariant_SYY_model(spec_nlm, radial::Radial_basis, L::Int64; categories=[], _get_cat = _get_cat_default, d=3, group="O3")
    filter_init = RPE_filter_long(L)
    spec_nlm = spec_nlm[findall(x -> filter_init(x) == 1, spec_nlm)]
    
    # sort!(spec_nlm, by = x -> length(x))
    spec_nlm = closure(spec_nlm, filter_init; categories = categories)
    
-   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, d = d)
+   luxchain_tmp, ps_tmp, st_tmp = EquivariantModels.xx2AA(spec_nlm, radial; categories = categories, _get_cat = _get_cat, d = d)
    F(X) = luxchain_tmp(X, ps_tmp, st_tmp)[1]
    
    cgen = Rot3DCoeffs_long(L) # TODO: this should be made group related
@@ -282,10 +269,10 @@ function equivariant_SYY_model(spec_nlm, radial::Radial_basis, L::Int64; categor
    return luxchain, ps, st
 end
 
-equivariant_SYY_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], d=3,group = "O3") = 
+equivariant_SYY_model(totdeg::Int64, ν::Int64, radial::Radial_basis, L::Int64; categories=[], _get_cat = _get_cat_default, d=3,group = "O3") = 
    equivariant_SYY_model(degord2spec(radial; totaldegree = totdeg, order = ν, Lmax = L, islong=true)[2], radial, L; categories, d, group)
 
-equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], d=3, group="O3") = 
+equivariant_SYY_model(nn::Vector{Int64}, ll::Vector{Int64}, radial::Radial_basis, L::Int64; categories=[], _get_cat = _get_cat_default, d=3, group="O3") = 
    equivariant_SYY_model(_close(nn, ll; filter = RPE_filter_long(L)), radial, L; categories, d, group)
    
 ## TODO: The following should eventually go into ACEhamiltonians.jl rather than this package

@@ -33,5 +33,6 @@ function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=r->1,f_tr
    
    f(r) = f_trans(r) * f_cut(r)
 
-   return Radial_basis(Chain(getnorm = WrappedFunction(x -> norm.(x)), trans = WrappedFunction(x -> f.(x)), poly = lux(basis), ), spec)
+   _norm(x) = try norm(x); catch; norm(x.rr); end
+   return Radial_basis(Chain(getnorm = WrappedFunction(x -> _norm.(x)), trans = WrappedFunction(x -> f.(x)), poly = lux(basis), ), spec)
 end

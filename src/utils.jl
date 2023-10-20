@@ -252,4 +252,4 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
 
-get_i(i) = WrappedFunction(t -> t[i])
+_get_cat_default(x) = [ (x[i].Zi,x[i].Zj) for i = 1:length(x) ]
