@@ -3,7 +3,7 @@ using LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
 
  struct Radial_basis{T <: AbstractExplicitLayer} <:AbstractExplicitContainerLayer{(:Rnl, )}
     Rnl::T
-    # make it meta or just leave it as a NameTuple ?
+    # make it meta or just leave it as a NamedTuple ?
     Radialspec::Vector #{NamedTuple} #TODO: double check this...
  end
 
