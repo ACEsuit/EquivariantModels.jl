@@ -196,6 +196,9 @@ function loss(train, calc, p_vec)
    return err
 end
 
+@info("evaluate loss")
+@btime loss($train, $calc, $p_vec)
+
 @info("evaluate double pb")
 
 using ReverseDiff
