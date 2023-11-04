@@ -7,8 +7,20 @@ struct ConstLinearLayer{T} <: AbstractExplicitLayer
    op::T
 end
 
-(l::ConstLinearLayer{T})(x::AbstractVector) where T = begin
-   TT = promote_type(eltype(l.op[1]), eltype(x))
+
+_valtype(op::AbstractMatrix{<:Number}, x) = promote_type(op, x)
+_valtype(op::AbstractMatrix{<:AbstractVector}, x) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x))}
+
+(l::ConstLinearLayer{T})(x::AbstractVector{ <: Number}) where T = begin
+   TT =_valtype(l.op, x)
+   C = zeros(TT, size(l.op, 1))
+   genmul!(C, l.op, unwrap(x), *)
+   release!(x)
+   return C
+end
+
+(l::ConstLinearLayer{T})(x::AbstractVector{<: AbstractVector}) where T = begin
+   TT = _valtype(l.op, x)
    C = zeros(TT, size(l.op, 1))
    genmul!(C, l.op, unwrap(x), *)
    release!(x)
