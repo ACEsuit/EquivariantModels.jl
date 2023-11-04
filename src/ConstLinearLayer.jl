@@ -1,50 +1,71 @@
-import ChainRulesCore: rrule
 using LuxCore, LinearOperators
 using LuxCore: AbstractExplicitLayer
 using ObjectPools: unwrap, release!
+using SparseArrays: AbstractSparseMatrixCSC, nonzeros, rowvals, nzrange
+using LinearAlgebra: Adjoint
+
+import ChainRulesCore: rrule
 
 struct ConstLinearLayer{T} <: AbstractExplicitLayer
    op::T
 end
 
-
-_valtype(op::AbstractMatrix{<:Number}, x) = promote_type(op, x)
-_valtype(op::AbstractMatrix{<:AbstractVector}, x) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x))}
-
-(l::ConstLinearLayer{T})(x::AbstractVector{ <: Number}) where T = begin
-   TT =_valtype(l.op, x)
-   C = zeros(TT, size(l.op, 1))
-   genmul!(C, l.op, unwrap(x), *)
-   release!(x)
-   return C
-end
-
-(l::ConstLinearLayer{T})(x::AbstractVector{<: AbstractVector}) where T = begin
-   TT = _valtype(l.op, x)
-   C = zeros(TT, size(l.op, 1))
-   genmul!(C, l.op, unwrap(x), *)
-   release!(x)
-   return C
-end
-
-(l::ConstLinearLayer{T})(x::AbstractMatrix) where T = begin
-   TT = promote_type(eltype(l.op[1]), eltype(x))
-   C = zeros(TT, (size(x, 1), size(l.op, 1)))
-   genmul!(C, l.op, unwrap(x), *)
-   release!(x)
-   return C
-end
+# === evaluation interface === 
+_valtype(op::AbstractMatrix{<: Number}, x) = promote_type(eltype(op), eltype(x))
+_valtype(op::AbstractMatrix{<: AbstractVector}, x) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x))}
 
 (l::ConstLinearLayer)(x::AbstractArray, ps, st) = (l(x), st)
 
-function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray, ps, st)
+# sparse linear op interface
+(l::ConstLinearLayer{<: AbstractSparseMatrixCSC})(x::AbstractVector) = begin
+   TT =_valtype(l.op, x)
+   out = zeros(TT, size(l.op, 1))
+   genmul!(out, l.op, unwrap(x), *)
+   release!(x)
+   return out
+end
+
+(l::ConstLinearLayer{<: AbstractSparseMatrixCSC})(x::AbstractMatrix) = begin
+   TT = _valtype(l.op, x)
+   out = zeros(TT, (size(l.op, 1), size(x, 2)))
+   genmul!(out, l.op, unwrap(x), *)
+   release!(x)
+   return out
+end
+
+# fallback to generic matmul
+(l::ConstLinearLayer)(x) = l.op * x
+
+##
+
+# === connection with ChainRulesCore === 
+# sparse matrix interface
+function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer{<: AbstractSparseMatrixCSC}, x, ps, st)
    val = l(x,ps,st)
    function pb(A)
-      return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
+      out = similar(x)
+      genmul!(out, l.op', A[1], dot)
+      return NoTangent(), NoTangent(), out, NoTangent(), NoTangent()
    end
    return val, pb
 end
 
+# fallback
+function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x, ps, st)
+   val = l(x,ps,st)
+   function pb(A)
+      return  NoTangent(), NoTangent(), vec_matmul(l.op', A[1]), NoTangent(), NoTangent()
+   end
+   return val, pb
+end
+
+vec_matmul(A::AbstractMatrix{<: Number}, B::AbstractVecOrMat{<: Number}) = A * B
+vec_matmul(A::AbstractArray, B::AbstractVecOrMat{<: SVector}) = sum([dot(conj(ai), bj) for ai in A[:, k], bj in B[k, :]] for k = 1:size(A, 2) )
+
+
+##
+
+# === construction with LinearOperator === 
 function _linear_operator_L(L, C, pos, len)
    if L == 0
       T = ComplexF64
@@ -60,11 +81,8 @@ function _linear_operator_L(L, C, pos, len)
    return LinearOperator{T}(size(C,1), len, false, false, fL, nothing, nothing; S = Vector{T})
 end
 
-
-# === sparse matmul implementation ===
-
-using SparseArrays: AbstractSparseMatrixCSC, nonzeros, rowvals, nzrange
-using LinearAlgebra: Transpose
+# === sparse matmul implementation from ACE.jl ===
+# https://github.com/ACEsuit/ACE.jl/blob/main/src/symmbasis.jl
 
 function genmul!(C, A::AbstractSparseMatrixCSC, B, mulop)
    size(A, 2) == size(B, 1) || throw(DimensionMismatch())
@@ -85,7 +103,7 @@ function genmul!(C, A::AbstractSparseMatrixCSC, B, mulop)
 end
 
 
-function genmul!(C, xA::Transpose{<:Any,<:AbstractSparseMatrixCSC}, B, mulop)
+function genmul!(C, xA::Adjoint{<:Any,<:AbstractSparseMatrixCSC}, B, mulop)
    A = xA.parent
    size(A, 2) == size(C, 1) || throw(DimensionMismatch())
    size(A, 1) == size(B, 1) || throw(DimensionMismatch())
