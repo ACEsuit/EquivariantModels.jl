@@ -20,15 +20,15 @@ for ord = 1:3
                                 Lmax = L, islong = false)
         luxchain, ps, st = equivariant_model(AAspec, radial, L; islong = false)
         F(X) = luxchain(X, ps, st)[1]
-        X = [ @SVector(rand(3)) for i in 1:10 ]
 
         T = L == 0 ? ComplexF64 : SVector{2L+1,ComplexF64}
-        A = zeros(T,length(F(X)),10length(F(X)))
-        for i = 1:10length(F(X))
+        A = zeros(T,size(luxchain.layers.BB.op,1),10*size(luxchain.layers.BB.op,1))
+        for i = 1:10*size(luxchain.layers.BB.op,1)
             local x = [ @SVector(rand(3)) for i in 1:10 ]
+            x = [ State(rr = x[i]) for i in 1:length(x) ]
             A[:,i] = F(x)
         end
-        print_tf(@test rank(A) == length(F(X)))
+        print_tf(@test rank(A) == size(luxchain.layers.BB.op,1))
     end
 end
 println()
