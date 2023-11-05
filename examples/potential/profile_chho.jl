@@ -23,6 +23,7 @@ Aspec, AAspec = degord2spec(radial; totaldegree = totdeg,
 
 l_basis, ps_basis, st_basis = equivariant_model(AAspec, radial, maxL; islong = false)
 X = [ @SVector(randn(3)) for i in 1:56 ]
+X = [ State(rr = X[i]) for i in 1:length(X) ]
 B = l_basis(X, ps_basis, st_basis)[1]
 
 # now extend the above BB basis to a model
