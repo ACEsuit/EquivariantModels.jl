@@ -10,24 +10,14 @@ L = 4
 totdeg = 4
 ord = 2
 radial = simple_radial_basis(legendre_basis(totdeg))
-# radial = Radial_basis(legendre_basis(totdeg) |> lux)
-Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
-                                  order = ord, 
-                                  Lmax = 0, )
+
 cats = [:O,:C]
 cats_ext = [(:O,:C),(:C,:O),(:O,:O),(:C,:C)] |> unique
-AAspec_tmp = []
-for i = 1:length(AAspec)
-   push!(AAspec_tmp, [ (spec..., s = cats_ext[1]) for spec in AAspec[i] ])
-   push!(AAspec_tmp, [ (spec..., s = cats_ext[2]) for spec in AAspec[i] ])
-end
-pos = findall(x -> length(x)>1, AAspec)
-_AAspec_tmp = [ [(AAspec[i][1]..., s = cats_ext[1]), (AAspec[i][2]..., s = cats_ext[2])] for i in pos ]
-_AAspec_tmp2 = [ [(AAspec[i][1]..., s = cats_ext[2]), (AAspec[i][2]..., s = cats_ext[1])] for i in pos ]
-append!(AAspec_tmp,_AAspec_tmp)
-append!(AAspec_tmp,_AAspec_tmp2)
+Aspec, AAspec = degord2spec(radial; totaldegree = totdeg, 
+                                  order = ord, 
+                                  Lmax = L, catagories = cats_ext)
 
-luxchain, ps, st = equivariant_model(AAspec_tmp, radial, L; categories=cats_ext)
+luxchain, ps, st = equivariant_model(AAspec, radial, L; categories=cats_ext)
 F(X) = luxchain(X, ps, st)[1]
 species = [ rand(cats) for i = 1:10 ]
 Species = [ (species[1], species[i]) for i = 1:10 ]
