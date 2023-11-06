@@ -2,6 +2,7 @@ using Polynomials4ML, StaticArrays, EquivariantModels, Test, Rotations, LinearAl
 using ACEbase.Testing: print_tf
 using EquivariantModels: getspec1idx, _invmap, dropnames, SList, val2i, xx2AA, degord2spec, simple_radial_basis
 using Polynomials4ML: lux
+using DecoratedParticles
 
 include("wigner.jl")
 
@@ -25,13 +26,13 @@ Species = [ (species[1], species[i]) for i = 1:10 ]
 for ntest = 1:10
    local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   XX = [X, Species]
+   XX = [State(rr = X[i], Zi = Species[i][1], Zj = Species[i][2]) for i = 1:length(X)]
    θ1 = rand() * 2pi
    θ2 = rand() * 2pi
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
-   QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QXX = [QX, Species]
+   QXX = [State(rr = Q * X[i], Zi = Species[i][1], Zj = Species[i][2]) for i = 1:length(X)]
+   # QXX = [QX, Species]
    
    print_tf(@test F(XX)[1] ≈ F(QXX)[1])
 
