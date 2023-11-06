@@ -217,7 +217,7 @@ end
 degord2spec(;totaldegree, order, Lmax, radial_basis = legendre_basis, wL = 1, islong = true)
 Return a list of AA specifications and A specifications
 """
-function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories = [], wL = 1, islong = true, rSH = false)
+function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories = [], filtered_extension = simple_extension, wL = 1, islong = true, rSH = false)
    # Rn = radial.radial_basis(totaldegree)
    Ylm = CYlmBasis(totaldegree)
 
@@ -245,11 +245,30 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    spec = [ vv[vv .> 0] for vv in specAA if !(isempty(vv[vv .> 0]))]
    # map back to nlm
    AAspec = getspecnlm(spec1p, spec)
-   # if !isempty(catagories)
-   #    AAspec = extend(AAspec, catagories)
-   # end
+   if !isempty(catagories)
+      AAspec = filtered_extension(AAspec, catagories)
+   end
    Aspec = specnlm2spec1p(AAspec)[1]
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
+end
+
+IP = Iterators.product
+function simple_extension(AAspec, cats)
+   new_AAspec = []
+   for bb in AAspec
+      newbb = []
+      kk = [ 1:length(cats) for _ = 1:length(bb) ]
+      idx = IP(kk...) |> collect
+      for indices in idx
+         @assert length(indices) == length(bb)
+         for (t,ii) in zip(bb, indices)
+            push!(newbb, (t..., s = cats[ii]))
+         end
+         push!(new_AAspec, newbb)
+         newbb = []
+      end
+   end
+   return sort.(new_AAspec) |> unique
 end
 
 get_i(i) = WrappedFunction(t -> t[i])
