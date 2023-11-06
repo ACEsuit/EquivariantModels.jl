@@ -1,5 +1,7 @@
 using Polynomials4ML: natural_indices
 
+export degord2spec
+
 """
 _invmap(a::AbstractVector)
 Return a dictionary that maps the elements of a to their indices
