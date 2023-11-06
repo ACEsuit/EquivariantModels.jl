@@ -1,7 +1,4 @@
 using Polynomials4ML: natural_indices
-using StaticArrays: SVector
-
-export degord2spec
 
 """
 _invmap(a::AbstractVector)
@@ -255,7 +252,6 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
 
-
 IP = Iterators.product
 function simple_extension(AAspec, cats)
    new_AAspec = []
@@ -277,6 +273,11 @@ end
 
 get_i(i) = WrappedFunction(t -> t[i])
 
-_get_cat_default(x) = [ SVector(x[i].Zi, x[i].Zj) for i = 1:length(x) ]
-
-
+function sparse_trans(pos,len::Int64)
+   @assert maximum(pos) <= len
+   A = sparse(zeros(Int64, length(pos),len))
+   for i = 1:length(pos)
+      A[i,pos[i]] = 1
+   end
+   return sparse(A)
+end

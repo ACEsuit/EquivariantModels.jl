@@ -3,7 +3,6 @@ using ACEbase.Testing: print_tf
 using Rotations, WignerD, BlockDiagonals
 using EquivariantModels: Radial_basis
 using Polynomials4ML:lux
-using DecoratedParticles
 
 include("wigner.jl")
 
@@ -25,15 +24,13 @@ for L = 0:Lmax
    @info("Tesing L = $L O(3) equivariance")
    for _ = 1:30
       local X, θ1, θ2, θ3, Q, QX
-      X = [ @SVector(rand(3)) for i in 1:10 ] 
+      X = [ @SVector(rand(3)) for i in 1:10 ]
       θ1 = rand() * 2pi
       θ2 = rand() * 2pi
       θ3 = rand() * 2pi
       Q = RotXYZ(θ1, θ2, θ3)
       # Q = rand_rot()
-      # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-      QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
+      QX = [SVector{3}(x) for x in Ref(Q) .* X]
       D = wigner_D(L,Matrix(Q))'
       # D = wignerD(L, θ, θ, θ)
       if L == 0
@@ -48,7 +45,6 @@ for L = 0:Lmax
    for _ = 1:30
       local X
       X = [ @SVector(rand(3)) for i in 1:10 ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
       print_tf(@test F(X) ≈ F2(X))
    end
    println()
@@ -73,9 +69,7 @@ for ntest = 1:10
    θ2 = rand() * 2pi
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
-   # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
    
    print_tf(@test F(X)[1] ≈ F(QX)[1])
 
@@ -104,7 +98,6 @@ for l = 0:Lmax
    
    for ntest = 1:20
       X = [ @SVector(rand(3)) for i in 1:10 ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
       print_tf(@test F(X)[l+1] == FF(X))
    end
    println()
@@ -114,7 +107,6 @@ end
 for _ = 1:10
    local X
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
    print_tf(@test length(F(X)) == length(F2(X)) && all([F(X)[i] ≈ F2(X)[i] for i = 1:length(F(X))]))
 end
 println()
@@ -139,9 +131,7 @@ for L = 0:Lmax
       θ = rand() * 2pi
       Q = RotXYZ(0, 0, θ)
       # Q = rand_rot()
-      # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-      QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
+      QX = [SVector{3}(x) for x in Ref(Q) .* X]
       D = wignerD(L, 0, 0, θ)
       if length(F(X)) == 0 
          continue
@@ -176,9 +166,7 @@ for ntest = 1:20
    θ2 = rand() * 2pi
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
-   # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
    D = BlockDiagonal([ wigner_D(l,Matrix(Q))' for l = 0:L] )
    
    print_tf(@test Ref(D) .* F(QX) ≈ F(X))
@@ -189,7 +177,6 @@ println()
 for _ = 1:10
    local X
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
    print_tf(@test length(F(X)) == length(F2(X)) && all([F(X)[i] ≈ F2(X)[i] for i = 1:length(F(X))]))
 end
 println()
@@ -214,73 +201,71 @@ for ntest = 1:20
    θ2 = rand() * 2pi
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
-   # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
    D = BlockDiagonal([ wigner_D(l,Matrix(Q))' for l = 0:L] )
    
    print_tf(@test Ref(D) .* F(QX) ≈ F(X))
 end
 println()
 
-# ## TODO: This should eventually go into ACEhamiltonians.jl
-# # equivariant blocks
+## TODO: This should eventually go into ACEhamiltonians.jl
+# equivariant blocks
 
-# @info("Testing the chain that generates several equivariant blocks from a long vector")
-# totdeg = 6
-# ν = 2
-# L = Lmax
-# luxchain, ps, st = equivariant_luxchain_constructor(totdeg,ν,L)
-# F(X) = luxchain(X, ps, st)[1]
+@info("Testing the chain that generates several equivariant blocks from a long vector")
+totdeg = 6
+ν = 2
+L = Lmax
+luxchain, ps, st = equivariant_luxchain_constructor(totdeg,ν,L)
+F(X) = luxchain(X, ps, st)[1]
 
-# # A small comparison - long vector does give us some redundant basis...
+# A small comparison - long vector does give us some redundant basis...
 
-# @info("Equivariance test")
-# l1l2set = [(l1,l2) for l1 = 0:L for l2 = 0:L-l1]
-# for ntest = 1:10
-#    local X, θ1, θ2, θ3, Q, QX
-#    X = [ @SVector(rand(3)) for i in 1:10 ]
-#    θ1 = rand() * 2pi
-#    θ2 = rand() * 2pi
-#    θ3 = rand() * 2pi
-#    Q = RotXYZ(θ1, θ2, θ3)
-#    QX = [SVector{3}(x) for x in Ref(Q) .* X]
+@info("Equivariance test")
+l1l2set = [(l1,l2) for l1 = 0:L for l2 = 0:L-l1]
+for ntest = 1:10
+   local X, θ1, θ2, θ3, Q, QX
+   X = [ @SVector(rand(3)) for i in 1:10 ]
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
 
-#    for (i,(l1,l2)) in enumerate(l1l2set)
-#       D1 = wigner_D(l1,Matrix(Q))'
-#       D2 = wigner_D(l2,Matrix(Q))'
-#       # D1 = wignerD(l1, 0, 0, θ)
-#       # D2 = wignerD(l2, 0, 0, θ)
-#       if F(X)[i] |> length ≠ 0
-#          print_tf(@test norm(Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i]) < 1e-12) 
-#       end
-#    end
-# end
-# println()
+   for (i,(l1,l2)) in enumerate(l1l2set)
+      D1 = wigner_D(l1,Matrix(Q))'
+      D2 = wigner_D(l2,Matrix(Q))'
+      # D1 = wignerD(l1, 0, 0, θ)
+      # D2 = wignerD(l2, 0, 0, θ)
+      if F(X)[i] |> length ≠ 0
+         print_tf(@test norm(Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i]) < 1e-12) 
+      end
+   end
+end
+println()
 
-# @info("Testing the equivariance of the second way of constructing equivariant bases")
-# totdeg = 6
-# ν = 1
-# L = Lmax
-# luxchain, ps, st = EquivariantModels.equivariant_luxchain_constructor_new(totdeg,ν,L);
-# F(X) = luxchain(X, ps, st)[1]
+@info("Testing the equivariance of the second way of constructing equivariant bases")
+totdeg = 6
+ν = 1
+L = Lmax
+luxchain, ps, st = EquivariantModels.equivariant_luxchain_constructor_new(totdeg,ν,L);
+F(X) = luxchain(X, ps, st)[1]
 
-# for ntest = 1:10
-#    local X, θ1, θ2, θ3, Q, QX
-#    X = [ @SVector(rand(3)) for i in 1:10 ]
-#    θ1 = rand() * 2pi
-#    θ2 = rand() * 2pi
-#    θ3 = rand() * 2pi
-#    Q = RotXYZ(θ1, θ2, θ3)
-#    QX = [SVector{3}(x) for x in Ref(Q) .* X]
+for ntest = 1:10
+   local X, θ1, θ2, θ3, Q, QX
+   X = [ @SVector(rand(3)) for i in 1:10 ]
+   θ1 = rand() * 2pi
+   θ2 = rand() * 2pi
+   θ3 = rand() * 2pi
+   Q = RotXYZ(θ1, θ2, θ3)
+   QX = [SVector{3}(x) for x in Ref(Q) .* X]
 
-#    for i = 1:length(F(X))
-#       l1,l2 = Int.(size(F(X)[i][1]).-1)./2
-#       D1 = wigner_D(Int(l1),Matrix(Q))'
-#       D2 = wigner_D(Int(l2),Matrix(Q))'
-#       # D1 = wignerD(l1, 0, 0, θ)
-#       # D2 = wignerD(l2, 0, 0, θ)
-#       print_tf(@test Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i] |> norm < 1e-12)
-#    end
-# end
-# println()
+   for i = 1:length(F(X))
+      l1,l2 = Int.(size(F(X)[i][1]).-1)./2
+      D1 = wigner_D(Int(l1),Matrix(Q))'
+      D2 = wigner_D(Int(l2),Matrix(Q))'
+      # D1 = wignerD(l1, 0, 0, θ)
+      # D2 = wignerD(l2, 0, 0, θ)
+      print_tf(@test Ref(D1') .* F(X)[i] .* Ref(D2) - F(QX)[i] |> norm < 1e-12)
+   end
+end
+println()
