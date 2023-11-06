@@ -1,4 +1,7 @@
 using Polynomials4ML: natural_indices
+using StaticArrays: SVector
+
+export degord2spec
 
 """
 _invmap(a::AbstractVector)
@@ -252,5 +255,5 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
 
-_get_cat_default(x) = [ (x[i].Zi,x[i].Zj) for i = 1:length(x) ]
+_get_cat_default(x) = [ SVector(x[i].Zi, x[i].Zj) for i = 1:length(x) ]
 
