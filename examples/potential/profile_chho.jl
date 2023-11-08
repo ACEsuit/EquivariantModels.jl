@@ -2,7 +2,6 @@ using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Zygote
 using Polynomials4ML: LinearLayer, RYlmBasis, lux, legendre_basis
 using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA, simple_radial_basis
 using JuLIP, Combinatorics, BenchmarkTools
-using DecoratedParticles
 
 rng = Random.MersenneTwister()
 
