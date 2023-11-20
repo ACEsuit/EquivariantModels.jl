@@ -43,7 +43,9 @@ end
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer{<: AbstractSparseMatrixCSC}, x, ps, st)
    val = l(x,ps,st)
    function pb(A)
-      out = similar(x)
+      #out = similar(x)
+      T = eltype(A[1][1])
+      out = zeros(T, size(x))
       genmul!(out, l.op', A[1], dot)
       return NoTangent(), NoTangent(), out, NoTangent(), NoTangent()
    end
