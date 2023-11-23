@@ -252,7 +252,6 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
 
-
 _get_cat_default(x) = [ (x[i].Zi,x[i].Zj) for i = 1:length(x) ]
 
 IP = Iterators.product
@@ -276,4 +275,11 @@ end
 
 get_i(i) = WrappedFunction(t -> t[i])
 
-
+function sparse_trans(pos,len::Int64)
+   @assert maximum(pos) <= len
+   A = sparse(zeros(Int64, length(pos),len))
+   for i = 1:length(pos)
+      A[i,pos[i]] = 1
+   end
+   return sparse(A)
+end

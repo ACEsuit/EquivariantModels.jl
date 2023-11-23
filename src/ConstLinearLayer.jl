@@ -18,7 +18,7 @@ end
 
  (l::ConstLinearLayer)(x::AbstractArray,ps,st) = (l(x), st)
 
- # NOTE: the following rrule is kept because there is an issue with SparseArray
+ # NOTE: the following rrule is kept because there is a issue with SparseArray
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractVector)
     val = l(x)
     function pb(A)
