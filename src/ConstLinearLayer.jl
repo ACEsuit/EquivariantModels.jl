@@ -1,38 +1,36 @@
-import ChainRulesCore: rrule
 using LuxCore, LinearOperators
 using LuxCore: AbstractExplicitLayer
+using ObjectPools: unwrap, release!
+using SparseArrays: AbstractSparseMatrixCSC, nonzeros, rowvals, nzrange
+using LinearAlgebra: Adjoint
+
+import ChainRulesCore: rrule
 
 struct ConstLinearLayer{T} <: AbstractExplicitLayer
-    op::T
+   op::T
 end
 
-(l::ConstLinearLayer{T})(x::AbstractVector) where T = l.op * x
+# === evaluation interface === 
+_valtype(op::AbstractMatrix{<: Number}, x) = promote_type(eltype(op), eltype(x))
+_valtype(op::AbstractMatrix{<: AbstractVector}, x) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x))}
 
-(l::ConstLinearLayer{T})(x::AbstractMatrix) where T = begin
-    Tmp = l(x[1,:])
-    for i = 2:size(x,1)
-        Tmp = [Tmp l(x[i,:])]
-    end
-    return Tmp'
- end
+(l::ConstLinearLayer)(x::AbstractArray, ps, st) = (l(x), st)
 
- (l::ConstLinearLayer)(x::AbstractArray,ps,st) = (l(x), st)
-
- # NOTE: the following rrule is kept because there is a issue with SparseArray
-function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractVector)
-    val = l(x)
-    function pb(A)
-        return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
-    end
-    return val, pb
+# sparse linear op interface
+(l::ConstLinearLayer{<: AbstractSparseMatrixCSC})(x::AbstractVector) = begin
+   TT =_valtype(l.op, x)
+   out = zeros(TT, size(l.op, 1))
+   genmul!(out, l.op, unwrap(x), *)
+   release!(x)
+   return out
 end
 
-function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer, x::AbstractArray,ps,st)
-    val = l(x,ps,st)
-    function pb(A)
-        return NoTangent(), NoTangent(), l.op' * A[1], (op = A[1] * x',), NoTangent()
-    end
-    return val, pb
+(l::ConstLinearLayer{<: AbstractSparseMatrixCSC})(x::AbstractMatrix) = begin
+   TT = _valtype(l.op, x)
+   out = zeros(TT, (size(l.op, 1), size(x, 2)))
+   genmul!(out, l.op, unwrap(x), *)
+   release!(x)
+   return out
 end
 
 # fallback to generic matmul

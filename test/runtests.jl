@@ -5,6 +5,7 @@ using Test
     @testset "CategoricalBasis" begin include("test_categorial.jl") end
     @testset "Equivariance" begin 
         include("test_equivariance.jl") 
+        include("test_equiv_with_state.jl")
         include("test_equiv_with_cate.jl")
         include("test_rSH_equivariance.jl")
     end
