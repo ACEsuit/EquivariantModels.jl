@@ -2,6 +2,9 @@ using EquivariantModels
 using Test
 
 @testset "EquivariantModels.jl" begin
+    @testset "ConstantLinearLayer" begin
+        include("test_ConstantLinearLayer.jl")
+    end
     @testset "CategoricalBasis" begin include("test_categorial.jl") end
     @testset "Equivariance" begin 
         include("test_equivariance.jl") 

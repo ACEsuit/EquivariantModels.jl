@@ -1,11 +1,12 @@
 using Polynomials4ML: natural_indices, ScalarPoly4MLBasis, lux
 using LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
+export Radial_basis
 
- struct Radial_basis{T <: AbstractExplicitLayer} <:AbstractExplicitContainerLayer{(:Rnl, )}
-    Rnl::T
-    # make it meta or just leave it as a NameTuple ?
-    Radialspec::Vector #{NamedTuple} #TODO: double check this...
- end
+struct Radial_basis{T <: AbstractExplicitLayer} <:AbstractExplicitContainerLayer{(:Rnl, )}
+   Rnl::T
+   # make it meta or just leave it as a NameTuple ?
+   Radialspec::Vector #{NamedTuple} #TODO: double check this...
+end
 
 Radial_basis(Rnl::AbstractExplicitLayer, spec_Rnl::Union{Vector{Int}, UnitRange{Int64}}) = 
          Radial_basis(Rnl, [(n = i, ) for i in spec_Rnl])

@@ -1,4 +1,5 @@
 using Polynomials4ML: natural_indices
+export degord2spec
 
 """
 _invmap(a::AbstractVector)
