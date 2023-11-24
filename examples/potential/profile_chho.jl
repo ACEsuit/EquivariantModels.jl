@@ -59,6 +59,7 @@ Zygote.gradient(X -> model(X, ps, st)[1], X)[1]
 
 @btime Zygote.gradient(X -> $model(X, $ps, $st)[1], $X)[1]; # w.o. state 188.709 μs (1470 allocations: 881.34 KiB)
                                                             # w. state  904.833 μs (8200 allocations: 1.73 MiB)
+                                                            # I think it just because the gradient should be a 3-vector rather than a state ?
 
 @profview let model = model, X = X, ps = ps, st = st
    for _ = 1:5000
