@@ -13,6 +13,7 @@ L = 0
 
 for ord = 1:3
     for totdeg = 4:8
+        local radial, Aspec, AAspec, luxchain, ps, st
         radial = EquivariantModels.simple_radial_basis(MonoBasis(totdeg-1),r->sqrt(r)*fcut(rcut)(r),ftrans())
 
         Aspec, AAspec =  degord2spec(radial; totaldegree = totdeg, 

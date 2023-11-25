@@ -1,11 +1,12 @@
 using Polynomials4ML: natural_indices, ScalarPoly4MLBasis, lux
 using LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
+export Radial_basis
 
- struct Radial_basis{T <: AbstractExplicitLayer} <:AbstractExplicitContainerLayer{(:Rnl, )}
-    Rnl::T
-    # make it meta or just leave it as a NameTuple ?
-    Radialspec::Vector #{NamedTuple} #TODO: double check this...
- end
+struct Radial_basis{T <: AbstractExplicitLayer} <:AbstractExplicitContainerLayer{(:Rnl, )}
+   Rnl::T
+   # make it meta or just leave it as a NameTuple ?
+   Radialspec::Vector #{NamedTuple} #TODO: double check this...
+end
 
 Radial_basis(Rnl::AbstractExplicitLayer, spec_Rnl::Union{Vector{Int}, UnitRange{Int64}}) = 
          Radial_basis(Rnl, [(n = i, ) for i in spec_Rnl])
@@ -22,7 +23,7 @@ Radial_basis(Rnl::AbstractExplicitLayer) =
          end
 
 # it is in its current form just for the purpose of testing - a more specific example can be found in forces.jl
-function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=r->1,f_trans::Function=r->r; spec = nothing)
+function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=r->1,f_trans::Function=r->r; spec = nothing, isState = false)
    if isnothing(spec)
       try 
          spec = natural_indices(basis)
@@ -31,5 +32,7 @@ function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=r->1,f_tr
       end
    end
 
-   return Radial_basis(Chain(trans = WrappedFunction(x -> f_trans.(norm.(x))), evaluation = Lux.BranchLayer(poly = lux(basis), cutoff = WrappedFunction(x -> f_cut.(x))), env = WrappedFunction(x -> x[1].*x[2]), ), spec)
+   _norm(x) = isState ? norm(x.rr) : norm(x)
+   return Radial_basis(Chain(trans = WrappedFunction(x -> f_trans.(_norm.(x))), evaluation = Lux.BranchLayer(poly = lux(basis), cutoff = WrappedFunction(x -> f_cut.(x))), env = WrappedFunction(x -> x[1].*x[2]), ), spec)
+
 end
