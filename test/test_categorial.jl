@@ -38,6 +38,7 @@ println_slim(@test (out == [false, false, true] ))
 l_catbasis = lux(catbasis)
 ps, st = Lux.setup(MersenneTwister(1234), l_catbasis)
 for c in elements
+   local out
    out = evaluate(catbasis, c)
    l_out, st2 = l_catbasis(c, ps, st)
    println_slim(@test out == l_out)

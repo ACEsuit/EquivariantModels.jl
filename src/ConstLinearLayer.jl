@@ -12,7 +12,8 @@ end
 
 # === evaluation interface === 
 _valtype(op::AbstractMatrix{<: Number}, x) = promote_type(eltype(op), eltype(x))
-_valtype(op::AbstractMatrix{<: AbstractVector}, x) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x))}
+_valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractArray{<: Number}) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x[1][1]))}
+_valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractArray{<: AbstractVector}) = promote_type(eltype(op[1]), eltype(x[1][1]))
 
 (l::ConstLinearLayer)(x::AbstractArray, ps, st) = (l(x), st)
 
@@ -43,7 +44,7 @@ end
 function rrule(::typeof(LuxCore.apply), l::ConstLinearLayer{<: AbstractSparseMatrixCSC}, x, ps, st)
    val = l(x,ps,st)
    function pb(A)
-      T = eltype(A[1][1])
+      T = eltype(x)
       out = zeros(T, size(x))
       genmul!(out, l.op', A[1], dot)
       return NoTangent(), NoTangent(), out, NoTangent(), NoTangent()
@@ -104,17 +105,18 @@ function genmul!(C, A::AbstractSparseMatrixCSC, B, mulop)
 end
 
 
-function genmul!(C, xA::Adjoint{<:Any,<:AbstractSparseMatrixCSC}, B, mulop)
+function genmul!(C, xA::Adjoint{<:Any, <:AbstractSparseMatrixCSC}, B, mulop)
    A = xA.parent
    size(A, 2) == size(C, 1) || throw(DimensionMismatch())
    size(A, 1) == size(B, 1) || throw(DimensionMismatch())
    size(B, 2) == size(C, 2) || throw(DimensionMismatch())
    nzv = nonzeros(A)
    rv = rowvals(A)
-   fill!(C, zero(_valtype(A, B)))
+   TAB = _valtype(A, B)
+   fill!(C, zero(TAB))
    for k in 1:size(C, 2)
       @inbounds for col in 1:size(A, 2)
-         tmp = zero(_valtype(A,B))
+         tmp = zero(TAB)
          for j in nzrange(A, col)
             tmp += mulop(nzv[j], B[rv[j],k])
          end

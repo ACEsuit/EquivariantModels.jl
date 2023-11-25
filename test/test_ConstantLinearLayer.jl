@@ -19,7 +19,7 @@ cases = ["AbstractSparseMatrixCSC{ <: Number} operation", "AbstractSparseMatrixC
           "Testing general fallback to genericmatmul (<: Number)", "Testing general fallback to genericmatmul (<: SVector)",]
 Cs = [sprand(T, n, m, sparsity), sprand(SVector{vec_len, T}, n, m, sparsity), 
       randn(T, n, m), randn(SVector{vec_len, T}, n, m)]
-uTs = [T, SVector{5, T}, T, SVector{5, T}]
+uTs = [T, SVector{vec_len, T}, T, SVector{vec_len, T}]
 
 for (case, C, uT) in zip(cases, Cs, uTs)
    @info(case)
