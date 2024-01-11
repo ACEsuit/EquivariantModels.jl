@@ -1,4 +1,5 @@
 using Polynomials4ML: natural_indices
+export degord2spec
 
 """
 _invmap(a::AbstractVector)
@@ -251,6 +252,8 @@ function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories 
    Aspec = specnlm2spec1p(AAspec)[1]
    return Aspec, AAspec # Aspecgetspecnlm(spec1p, spec)
 end
+
+_get_cat_default(x) = [ (x[i].Zi,x[i].Zj) for i = 1:length(x) ]
 
 IP = Iterators.product
 function simple_extension(AAspec, cats)
