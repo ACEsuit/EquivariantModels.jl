@@ -155,10 +155,15 @@ specnlm2spec1p(spec_nlm)
 From a list of AA specifications to all A specifications needed
 """
 function specnlm2spec1p(spec_nlm)
-    spec1p = union(spec_nlm...)
+    # spec1p = union(spec_nlm...) # oringinal implementation which leads to StackOverflowError when input vector is too long
+    spec1p = []
+    for spec_nlm_i in spec_nlm
+        push!(spec1p, spec_nlm_i...)
+    end
+    unique!(spec1p)
     lmax = [ spec1p[i].l for i = 1:length(spec1p) ] |> maximum
     nmax = [ spec1p[i].n for i = 1:length(spec1p) ] |> maximum
-    return spec1p, lmax, nmax + 1
+    return identity.(spec1p), lmax, nmax + 1
 end
 
 nset(spec1p) = [ (n=spec.n,) for spec in spec1p]
