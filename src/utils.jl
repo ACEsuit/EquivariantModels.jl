@@ -154,6 +154,7 @@ specnlm2spec1p(spec_nlm)
 From a list of AA specifications to all A specifications needed
 """
 function specnlm2spec1p(spec_nlm)
+    # spec1p = union(spec_nlm...) # oringinal implementation which leads to StackOverflowError when input vector is too long
     spec1p = []
     for spec_nlm_i in spec_nlm
         push!(spec1p, spec_nlm_i...)
