@@ -155,7 +155,7 @@ From a list of AA specifications to all A specifications needed
 """
 function specnlm2spec1p(spec_nlm)
     spec1p = []
-    for (i, spec_nlm_i) in enumerate(spec_nlm)
+    for spec_nlm_i in spec_nlm
         push!(spec1p, spec_nlm_i...)
         unique!(spec1p)
     end
