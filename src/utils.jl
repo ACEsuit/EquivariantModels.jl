@@ -154,7 +154,11 @@ specnlm2spec1p(spec_nlm)
 From a list of AA specifications to all A specifications needed
 """
 function specnlm2spec1p(spec_nlm)
-    spec1p = union(spec_nlm...)
+    spec1p = []
+    for (i, spec_nlm_i) in enumerate(spec_nlm)
+        push!(spec1p, spec_nlm_i...)
+        unique!(spec1p)
+    end
     lmax = [ spec1p[i].l for i = 1:length(spec1p) ] |> maximum
     nmax = [ spec1p[i].n for i = 1:length(spec1p) ] |> maximum
     return spec1p, lmax, nmax + 1
