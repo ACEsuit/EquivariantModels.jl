@@ -1,5 +1,5 @@
 using EquivariantModels, Lux, StaticArrays, Random, LinearAlgebra, Polynomials4ML
-using Polynomials4ML: LinearLayer, RYlmBasis, lux 
+using Polynomials4ML: LinearLayer, lux 
 using EquivariantModels: degord2spec, specnlm2spec1p, xx2AA, simple_radial_basis, ConstLinearLayer
 using LuxCore
 using SparseArrays

@@ -26,12 +26,12 @@ Species = [ (species[1], species[i]) for i = 1:10 ]
 for ntest = 1:10
    local X, θ1, θ2, θ3, Q, QX
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   XX = [State(rr = X[i], Zi = Species[i][1], Zj = Species[i][2]) for i = 1:length(X)]
+   XX = [PState(rr = X[i], Zi = Species[i][1], Zj = Species[i][2]) for i = 1:length(X)]
    θ1 = rand() * 2pi
    θ2 = rand() * 2pi
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
-   QXX = [State(rr = Q * X[i], Zi = Species[i][1], Zj = Species[i][2]) for i = 1:length(X)]
+   QXX = [PState(rr = Q * X[i], Zi = Species[i][1], Zj = Species[i][2]) for i = 1:length(X)]
    # QXX = [QX, Species]
 
    print_tf(@test F(XX)[1] ≈ F(QXX)[1])

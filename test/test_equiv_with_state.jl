@@ -32,8 +32,8 @@ for L = 0:Lmax
       Q = RotXYZ(θ1, θ2, θ3)
       # Q = rand_rot()
       # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-      QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
+      QX = [ PState(rr = Q * X[i]) for i in 1:length(X) ]
+      X = [ PState(rr = X[i]) for i in 1:length(X) ]
       D = wigner_D(L,Matrix(Q))'
       # D = wignerD(L, θ, θ, θ)
       if L == 0
@@ -48,7 +48,7 @@ for L = 0:Lmax
    for _ = 1:30
       local X
       X = [ @SVector(rand(3)) for i in 1:10 ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
+      X = [ PState(rr = X[i]) for i in 1:length(X) ]
       print_tf(@test F(X) ≈ F2(X))
    end
    println()
@@ -74,8 +74,8 @@ for ntest = 1:10
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
    # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   QX = [ PState(rr = Q * X[i]) for i in 1:length(X) ]
+   X = [ PState(rr = X[i]) for i in 1:length(X) ]
 
    print_tf(@test F(X)[1] ≈ F(QX)[1])
 
@@ -104,7 +104,7 @@ for l = 0:Lmax
 
    for ntest = 1:20
       X = [ @SVector(rand(3)) for i in 1:10 ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
+      X = [ PState(rr = X[i]) for i in 1:length(X) ]
       print_tf(@test F(X)[l+1] == FF(X))
    end
    println()
@@ -114,7 +114,7 @@ end
 for _ = 1:10
    local X
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   X = [ PState(rr = X[i]) for i in 1:length(X) ]
    print_tf(@test length(F(X)) == length(F2(X)) && all([F(X)[i] ≈ F2(X)[i] for i = 1:length(F(X))]))
 end
 println()
@@ -140,8 +140,8 @@ for L = 0:Lmax
       Q = RotXYZ(0, 0, θ)
       # Q = rand_rot()
       # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-      QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-      X = [ State(rr = X[i]) for i in 1:length(X) ]
+      QX = [ PState(rr = Q * X[i]) for i in 1:length(X) ]
+      X = [ PState(rr = X[i]) for i in 1:length(X) ]
       D = wignerD(L, 0, 0, θ)
       if length(F(X)) == 0
          continue
@@ -177,8 +177,8 @@ for ntest = 1:20
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
    # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   QX = [ PState(rr = Q * X[i]) for i in 1:length(X) ]
+   X = [ PState(rr = X[i]) for i in 1:length(X) ]
    D = BlockDiagonal([ wigner_D(l,Matrix(Q))' for l = 0:L] )
 
    print_tf(@test Ref(D) .* F(QX) ≈ F(X))
@@ -189,7 +189,7 @@ println()
 for _ = 1:10
    local X
    X = [ @SVector(rand(3)) for i in 1:10 ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   X = [ PState(rr = X[i]) for i in 1:length(X) ]
    print_tf(@test length(F(X)) == length(F2(X)) && all([F(X)[i] ≈ F2(X)[i] for i = 1:length(F(X))]))
 end
 println()
@@ -215,8 +215,8 @@ for ntest = 1:20
    θ3 = rand() * 2pi
    Q = RotXYZ(θ1, θ2, θ3)
    # QX = [SVector{3}(x) for x in Ref(Q) .* X]
-   QX = [ State(rr = Q * X[i]) for i in 1:length(X) ]
-   X = [ State(rr = X[i]) for i in 1:length(X) ]
+   QX = [ PState(rr = Q * X[i]) for i in 1:length(X) ]
+   X = [ PState(rr = X[i]) for i in 1:length(X) ]
    D = BlockDiagonal([ wigner_D(l,Matrix(Q))' for l = 0:L] )
 
    print_tf(@test Ref(D) .* F(QX) ≈ F(X))
