@@ -220,7 +220,7 @@ Return a list of AA specifications and A specifications
 """
 function degord2spec(radial::Radial_basis; totaldegree, order, Lmax, catagories = [], filtered_extension = simple_extension, wL = 1, islong = true, rSH = false)
    # Rn = radial.radial_basis(totaldegree)
-   Ylm = CYlmBasis(totaldegree)
+   Ylm = complex_sphericalharmonics(totaldegree)
 
    spec1p = make_nlms_spec(radial, Ylm; totaldegree = totaldegree, admissible = (br, by) -> br.n + wL * by.l <= totaldegree)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))

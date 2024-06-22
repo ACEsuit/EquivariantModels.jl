@@ -1,4 +1,4 @@
-using Polynomials4ML: natural_indices, ScalarPoly4MLBasis, lux
+using Polynomials4ML: natural_indices, lux
 using LuxCore: AbstractExplicitContainerLayer, AbstractExplicitLayer
 export Radial_basis
 
@@ -23,7 +23,7 @@ Radial_basis(Rnl::AbstractExplicitLayer) =
          end
 
 # it is in its current form just for the purpose of testing - a more specific example can be found in forces.jl
-function simple_radial_basis(basis::ScalarPoly4MLBasis,f_cut::Function=r->1,f_trans::Function=r->r; spec = nothing, isState = false)
+function simple_radial_basis(basis,f_cut::Function=r->1,f_trans::Function=r->r; spec = nothing, isState = false)
    if isnothing(spec)
       try 
          spec = natural_indices(basis)

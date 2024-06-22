@@ -1,7 +1,7 @@
 using LinearAlgebra
 using SparseArrays: SparseMatrixCSC, sparse
 using RepLieGroups.O3: Rot3DCoeffs, Rot3DCoeffs_real, Rot3DCoeffs_long, re_basis, SYYVector, mm_filter, coco_dot
-using Polynomials4ML: legendre_basis, RYlmBasis, natural_indices, degree
+using Polynomials4ML: legendre_basis, real_sphericalharmonics, complex_sphericalharmonics, natural_indices, degree
 using Polynomials4ML.Utils: gensparse
 using Lux: WrappedFunction
 using Lux
@@ -171,7 +171,7 @@ function xx2AA(spec_nlm, radial::Radial_basis; categories=[], _get_cat = _get_ca
    @assert issubset(nset(spec1p), radial.Radialspec) || issubset(nlset(spec1p), radial.Radialspec)
 
    dict_spec1p = Dict([spec1p[i] => i for i = 1:length(spec1p)])
-   Ylm = rSH ? RYlmBasis(lmax) : CYlmBasis(lmax)
+   Ylm = rSH ? real_sphericalharmonics(lmax) : complex_sphericalharmonics(lmax)
    # Rn = radial_basis(nmax)
    
    if !isempty(categories)
@@ -342,7 +342,7 @@ function equivariant_luxchain_constructor(totdeg, ν, L; wL = 1, Rn = legendre_b
    filter = RPE_filter_long(L)
    cgen = Rot3DCoeffs_long(L)
 
-   Ylm = CYlmBasis(totdeg)
+   Ylm = complex_sphericalharmonics(totdeg)
    
    spec1p = make_nlms_spec(simple_radial_basis(Rn), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))
@@ -400,7 +400,7 @@ end
 # What can be adjusted in its input are: (1) total polynomial degree; (2) correlation order; (3) largest L
 # (4) weight of the order of spherical harmonics; (5) specified radial basis
 function equivariant_luxchain_constructor_new(totdeg, ν, L; wL = 1, Rn = legendre_basis(totdeg))
-   Ylm = CYlmBasis(totdeg)
+   Ylm = complex_sphericalharmonics(totdeg)
 
    spec1p = make_nlms_spec(simple_radial_basis(Rn), Ylm; totaldegree = totdeg, admissible = (br, by) -> br.n + wL * by.l <= totdeg)
    spec1p = sort(spec1p, by = (x -> x.n + x.l * wL))

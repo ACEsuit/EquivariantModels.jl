@@ -1,6 +1,5 @@
 using LuxCore, LinearOperators
 using LuxCore: AbstractExplicitLayer
-using ObjectPools: unwrap, release!
 using SparseArrays: AbstractSparseMatrixCSC, nonzeros, rowvals, nzrange
 using LinearAlgebra: Adjoint
 
@@ -12,8 +11,14 @@ end
 
 # === evaluation interface === 
 _valtype(op::AbstractMatrix{<: Number}, x) = promote_type(eltype(op), eltype(x))
+_valtype(op::AbstractMatrix{<:Number}, x::AbstractVector{<:Number}) = promote_type(eltype(op), eltype(x))
+_valtype(op::AbstractMatrix{<:Number}, x::AbstractVector{<:StaticVector}) = promote_type(eltype(op), eltype(x))
+
 _valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractArray{<: Number}) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x[1][1]))}
-_valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractArray{<: AbstractVector}) = promote_type(eltype(op[1]), eltype(x[1][1]))
+_valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractVector{<: Number}) = SVector{length(op[1]), promote_type(eltype(op[1]), eltype(x))}
+_valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractArray{<: AbstractVector}) = promote_type(eltype(op[1]), eltype(x[1]))
+_valtype(op::AbstractMatrix{<:AbstractVector}, x::AbstractVector{<: StaticVector}) = promote_type(eltype(op[1]), eltype(x[1]))
+
 
 (l::ConstLinearLayer)(x::AbstractArray, ps, st) = (l(x), st)
 
@@ -21,16 +26,14 @@ _valtype(op::AbstractMatrix{<: AbstractVector}, x::AbstractArray{<: AbstractVect
 (l::ConstLinearLayer{<: AbstractSparseMatrixCSC})(x::AbstractVector) = begin
    TT =_valtype(l.op, x)
    out = zeros(TT, size(l.op, 1))
-   genmul!(out, l.op, unwrap(x), *)
-   release!(x)
+   genmul!(out, l.op, x, *)
    return out
 end
 
 (l::ConstLinearLayer{<: AbstractSparseMatrixCSC})(x::AbstractMatrix) = begin
    TT = _valtype(l.op, x)
    out = zeros(TT, (size(l.op, 1), size(x, 2)))
-   genmul!(out, l.op, unwrap(x), *)
-   release!(x)
+   genmul!(out, l.op, x, *)
    return out
 end
 

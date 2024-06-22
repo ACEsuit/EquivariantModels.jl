@@ -1,8 +1,7 @@
 using Polynomials4ML
-using Polynomials4ML: AbstractPoly4MLBasis, SphericalCoords
 using StaticArrays: SVector, StaticArray
 
-import Polynomials4ML: _valtype, _out_size, _outsym, evaluate, evaluate!
+import Polynomials4ML: _valtype, _out_size, _outsym, evaluate, evaluate!, AbstractP4MLBasis
 import ChainRulesCore: rrule, NoTangent
 
 export CategoricalBasis
@@ -69,20 +68,20 @@ variable ``u`` may take. Suppose, e.g., we allow the values `[:a, :b, :c]`,
 then 
 ```julia 
 P = CategoricalBasis([:a, :b, :c]; varsym = :u, idxsym = :q)
-evaluate(P, State(u = :a))     # Bool[1, 0, 0]
-evaluate(P, State(u = :b))     # Bool[0, 1, 0]
-evaluate(P, State(u = :c))     # Bool[0, 0, 1]
+evaluate(P, PState(u = :a))     # Bool[1, 0, 0]
+evaluate(P, PState(u = :b))     # Bool[0, 1, 0]
+evaluate(P, PState(u = :c))     # Bool[0, 0, 1]
 ```
 If we evaluate it with an unknown state we get an error: 
 ```julia 
-evaluate(P, State(u = :x))   
+evaluate(P, PState(u = :x))   
 # Error : val = x not found in this list
 ```
 
 Warning : the list of categories is internally stored as an SVector 
 which means that lookup scales linearly with the number of categories
 """
-struct CategoricalBasis{LEN, T} <: AbstractPoly4MLBasis
+struct CategoricalBasis{LEN, T} <: AbstractP4MLBasis
    categories::SList{LEN, T}
    meta::Dict{String, Any}
 end
@@ -93,10 +92,7 @@ CategoricalBasis(categories::AbstractArray, meta = Dict{String, Any}() ) =
       CategoricalBasis(SList(categories), meta)
 
       
-#Polynomials4ML._outsym(x::Char) = :char
-_outsym(x::T) where T = :T
-
-const NSS = Union{Number, SphericalCoords, StaticArray}
+const NSS = Union{Number, StaticArray}
 
 _out_size(basis::CategoricalBasis{LEN, T}, x::T) where {LEN, T} = (LEN,)
 _out_size(basis::CategoricalBasis{LEN, T}, x::Vector{T}) where {LEN, T} = (length(x), LEN)
