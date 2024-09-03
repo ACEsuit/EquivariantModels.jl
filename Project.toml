@@ -1,7 +1,7 @@
 name = "EquivariantModels"
 uuid = "73ee3e68-46fd-466f-9c56-451dc0291ebc"
 authors = ["Christoph Ortner <christophortner@gmail.com> and contributors"]
-version = "0.0.4"
+version = "0.0.5"
 
 [deps]
 ACEbase = "14bae519-eb20-449c-a949-9c58ed33163e"
@@ -26,7 +26,7 @@ WignerD = "87c4ff3e-34df-11e9-37a7-516cea4e0402"
 
 [compat]
 julia = "1"
-DecoratedParticles = "0.0.5"
+DecoratedParticles = "0.0.5, 0.0.6, 0.0.7"
 Polynomials4ML = "0.3.1"
 
 [extras]
