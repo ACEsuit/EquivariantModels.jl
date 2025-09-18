@@ -25,5 +25,7 @@ WignerD = "87c4ff3e-34df-11e9-37a7-516cea4e0402"
 
 [compat]
 julia = "1"
+Lux = "0.5"
+LuxCore = "0.1"
 Polynomials4ML = "0.3.1"
 
