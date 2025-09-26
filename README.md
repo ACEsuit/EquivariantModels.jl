@@ -5,3 +5,5 @@
 [![Build Status](https://github.com/ACEsuit/EquivariantModels.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ACEsuit/EquivariantModels.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 Tools for buiding equivariant models - both deep and shallow.
+
+No longer maintained except for critical bugfixes in downstream dependencies. 
